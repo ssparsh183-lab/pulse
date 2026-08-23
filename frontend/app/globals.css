@@ -1,0 +1,354 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  
+  --color-background: #000000;
+  --color-foreground: #ededed;
+  --color-brand: #a855f7;
+  --color-brand-light: #c084fc;
+  --color-brand-dark: #7e22ce;
+  
+  --color-surface: #0a0a0a;
+  --color-surface-elevated: #171717;
+  --color-border: #27272a;
+  --color-muted: #a1a1aa;
+}
+
+/* ============================================================
+   THEME PALETTES
+   ============================================================ */
+
+/* Default: Cyberpunk Purple */
+:root {
+  --brand: #a855f7;
+  --brand-light: #c084fc;
+  --brand-dark: #7e22ce;
+  --brand-glow: rgba(168, 85, 247, 0.4);
+  --brand-glow-strong: rgba(168, 85, 247, 0.6);
+  --brand-glow-soft: rgba(168, 85, 247, 0.15);
+  --brand-tint: rgba(168, 85, 247, 0.03);
+  --grad-1: rgba(168, 85, 247, 0.18);
+  --grad-2: rgba(139, 92, 246, 0.08);
+  --grad-3: rgba(217, 70, 239, 0.06);
+  --bg-solid: #050505;
+}
+
+/* Matrix Neon Green */
+.theme-matrix {
+  --brand: #10b981;
+  --brand-light: #34d399;
+  --brand-dark: #047857;
+  --brand-glow: rgba(16, 185, 129, 0.4);
+  --brand-glow-strong: rgba(16, 185, 129, 0.6);
+  --brand-glow-soft: rgba(16, 185, 129, 0.15);
+  --brand-tint: rgba(16, 185, 129, 0.03);
+  --grad-1: rgba(16, 185, 129, 0.18);
+  --grad-2: rgba(52, 211, 153, 0.08);
+  --grad-3: rgba(5, 150, 105, 0.06);
+  --bg-solid: #030b06;
+}
+
+/* Minimal Mono White */
+.theme-minimal {
+  --brand: #f4f4f5;
+  --brand-light: #ffffff;
+  --brand-dark: #a1a1aa;
+  --brand-glow: rgba(255, 255, 255, 0.2);
+  --brand-glow-strong: rgba(255, 255, 255, 0.35);
+  --brand-glow-soft: rgba(255, 255, 255, 0.05);
+  --brand-tint: rgba(255, 255, 255, 0.02);
+  --grad-1: rgba(255, 255, 255, 0.08);
+  --grad-2: rgba(255, 255, 255, 0.04);
+  --grad-3: rgba(255, 255, 255, 0.02);
+  --bg-solid: #050505;
+}
+
+/* Ocean Blue */
+.theme-ocean {
+  --brand: #3b82f6;
+  --brand-light: #60a5fa;
+  --brand-dark: #1d4ed8;
+  --brand-glow: rgba(59, 130, 246, 0.4);
+  --brand-glow-strong: rgba(59, 130, 246, 0.6);
+  --brand-glow-soft: rgba(59, 130, 246, 0.15);
+  --brand-tint: rgba(59, 130, 246, 0.03);
+  --grad-1: rgba(59, 130, 246, 0.18);
+  --grad-2: rgba(96, 165, 250, 0.08);
+  --grad-3: rgba(6, 182, 212, 0.06);
+  --bg-solid: #030812;
+}
+
+/* Sunset Orange */
+.theme-sunset {
+  --brand: #fb923c;
+  --brand-light: #fbbf24;
+  --brand-dark: #c2410c;
+  --brand-glow: rgba(251, 146, 60, 0.4);
+  --brand-glow-strong: rgba(251, 146, 60, 0.6);
+  --brand-glow-soft: rgba(251, 146, 60, 0.15);
+  --brand-tint: rgba(251, 146, 60, 0.03);
+  --grad-1: rgba(251, 146, 60, 0.18);
+  --grad-2: rgba(251, 191, 36, 0.08);
+  --grad-3: rgba(239, 68, 68, 0.06);
+  --bg-solid: #0d0603;
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+
+* {
+  border-color: var(--color-border);
+}
+
+html, body {
+  background: var(--bg-solid);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.5s ease;
+}
+
+body {
+  cursor: default;
+}
+
+/* ============================================================
+   SCROLLBAR (Theme-aware)
+   ============================================================ */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #0a0a0a; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--brand), var(--brand-dark));
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--brand-light), var(--brand));
+}
+
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { scrollbar-width: none; }
+
+/* ============================================================
+   GRADIENT BACKGROUND (Theme-aware)
+   ============================================================ */
+.gradient-bg {
+  background: 
+    radial-gradient(ellipse 80% 60% at 50% -20%, var(--grad-1), transparent),
+    radial-gradient(ellipse 60% 40% at 20% 80%, var(--grad-2), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 80%, var(--grad-3), transparent),
+    var(--bg-solid);
+  position: relative;
+  transition: background 0.5s ease;
+}
+
+.gradient-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: 
+    linear-gradient(var(--brand-glow-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--brand-glow-soft) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black, transparent);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ============================================================
+   GLASS PANEL (Theme-aware)
+   ============================================================ */
+.glass-panel {
+  background: linear-gradient(
+    135deg,
+    rgba(24, 24, 27, 0.7),
+    rgba(24, 24, 27, 0.4)
+  );
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--brand-glow-soft);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel:hover {
+  border-color: var(--brand-glow);
+  box-shadow: 
+    0 0 40px -10px var(--brand-glow),
+    0 0 60px -20px var(--brand-glow-soft);
+  transform: translateY(-2px);
+}
+
+/* ============================================================
+   BENTO HOVER
+   ============================================================ */
+.bento-hover {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.bento-hover:hover {
+  transform: translateY(-3px);
+  border-color: var(--brand-glow-strong);
+  box-shadow: 
+    0 20px 40px -20px var(--brand-glow),
+    0 0 0 1px var(--brand-glow-soft) inset;
+}
+
+/* ============================================================
+   BUTTON HOVER GLOW
+   ============================================================ */
+button:hover, a:hover, [role="button"]:hover {
+  cursor: pointer;
+}
+
+button:not(:disabled):hover {
+  filter: drop-shadow(0 0 8px var(--brand-glow));
+}
+
+/* ============================================================
+   TEXT SELECTION
+   ============================================================ */
+::selection {
+  background: var(--brand-glow-strong);
+  color: #fff;
+}
+
+/* ============================================================
+   FOCUS RINGS
+   ============================================================ */
+*:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* ============================================================
+   CURSOR GLOW
+   ============================================================ */
+.cursor-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 400px;
+  height: 400px;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle,
+    var(--brand-glow-soft) 0%,
+    var(--brand-tint) 30%,
+    transparent 70%
+  );
+  transition: opacity 0.3s;
+  mix-blend-mode: screen;
+}
+
+/* ============================================================
+   TEXT GRADIENT
+   ============================================================ */
+.text-gradient {
+  background: linear-gradient(135deg, #fff 0%, var(--brand-light) 60%, var(--brand) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ============================================================
+   TABULAR NUMBERS
+   ============================================================ */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+@keyframes pulse-purple {
+  0%, 100% { box-shadow: 0 0 0 0 var(--brand-glow); }
+  50% { box-shadow: 0 0 0 8px transparent; }
+}
+
+.pulse-purple {
+  animation: pulse-purple 2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer-purple {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--brand-glow-soft),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.6; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.animated-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+
+@keyframes beam-flow {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.beam-divider {
+  position: relative;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--brand-glow), transparent);
+  overflow: hidden;
+}
+
+.beam-divider::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--brand-glow-strong), transparent);
+  animation: beam-flow 3s linear infinite;
+}
+
+@keyframes float-y {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-15px); }
+}
+
+.float-y {
+  animation: float-y 4s ease-in-out infinite;
+}
+
+/* ============================================================
+   MONETIZATION POPUP ANIMATION
+   ============================================================ */
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes pulse-gold {
+  0%, 100% { box-shadow: 0 0 20px rgba(52, 211, 153, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(52, 211, 153, 0.6); }
+}
+
+.monetization-pop {
+  animation: slide-in-right 0.4s ease-out, pulse-gold 2s ease-in-out infinite 0.4s;
+}

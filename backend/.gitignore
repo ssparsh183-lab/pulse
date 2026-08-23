@@ -1,0 +1,63 @@
+# ============================================
+# PULSE — Git Ignore
+# ============================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+
+# --- Virtual Environment ---
+venv/
+env/
+.venv/
+ENV/
+
+# --- Environment Variables ---
+.env
+.env.local
+*.env
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Database ---
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Secrets / Tokens ---
+*.pem
+*.key
+credentials.json
+token.json
+client_secret*.json
+
+# --- Alembic ---
+# Keep migration versions, ignore local temp
+alembic/versions/__pycache__/
+
+# --- Models cache (sentence-transformers download) ---
+.cache/
+models_cache/
+
+# --- Build ---
+dist/
+build/
+*.egg
