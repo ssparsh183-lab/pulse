@@ -5,7 +5,7 @@
 import { PulseScoreGauge } from "@/components/analytics/pulse-score-gauge";
 import { AudienceDNAPanel } from "@/components/analytics/audience-dna-panel";
 import { MonetizationTip } from "@/components/analytics/monetization-tip";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth";
@@ -36,7 +36,7 @@ interface ChatMsg {
   isNew?: boolean;
 }
 
-export default function LiveStreamPage() {
+function LiveStreamContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -122,7 +122,7 @@ export default function LiveStreamPage() {
         if (score) setPulseScore(score);
         if (dna) setAudienceData(dna);
 
-        // 🔥 STEP 2: AUTO-DETECT STREAM CONCLUSION FROM X / TWITTER
+        // Auto-detect stream conclusion from X / Twitter
         if (s) {
           setStream(s);
           if (s.status === "ended") {
@@ -291,7 +291,6 @@ export default function LiveStreamPage() {
               </div>
             )}
 
-            {/* Manual End Session button hidden for X Live Streams (X manages it via Auto-End) */}
             {!isXLiveStream && (
               <button
                 onClick={handleEndStream}
@@ -454,5 +453,19 @@ export default function LiveStreamPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function LiveStreamPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen gradient-bg flex items-center justify-center">
+          <Loader label="Connecting to Live Command Center..." />
+        </main>
+      }
+    >
+      <LiveStreamContent />
+    </Suspense>
   );
 }

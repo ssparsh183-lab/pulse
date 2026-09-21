@@ -5,7 +5,7 @@
 import { PulseScoreGauge } from "@/components/analytics/pulse-score-gauge";
 import { AudienceDNAPanel } from "@/components/analytics/audience-dna-panel";
 import { MonetizationTip } from "@/components/analytics/monetization-tip";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth";
@@ -34,7 +34,7 @@ interface ChatMsg {
   isNew?: boolean;
 }
 
-export default function DemoStreamPage() {
+function DemoStreamContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -51,18 +51,14 @@ export default function DemoStreamPage() {
   const [pulseScore, setPulseScore] = useState<any>(null);
   const [audienceData, setAudienceData] = useState<any>(null);
 
-  // Active Context-Aware Sliding Genre State (Mixed by default!)
   const [activeGenre, setActiveGenre] = useState<string>("mixed");
 
-  // Decoupled stats bar states to prevent rendering loop!
   const [dynamicMsgCount, setDynamicMsgCount] = useState(0);
   const [dynamicUserCount, setDynamicUserCount] = useState(0);
 
-  // 🔥 URL Params for Context-Aware Navigation
   const fromSource = searchParams.get("from");
   const fromHandle = searchParams.get("handle");
 
-  // Context-Aware Back Navigation
   const handleBack = () => {
     if (fromSource === "twitter") {
       router.push(`/dashboard/twitter/channel?handle=${encodeURIComponent(fromHandle || "@Uppolice")}`);
@@ -79,19 +75,14 @@ export default function DemoStreamPage() {
     if (isHydrated && !token) router.replace("/");
   }, [isHydrated, token, router]);
 
-  // Master Demo Replay Trigger
   const handleRunDemoWithGenre = useCallback(async (chosenGenre: string) => {
     setDemoLoading(true);
     try {
       toast.info(`Configuring PULSE engine for context: ${chosenGenre.toUpperCase()}...`);
 
-      // 1. Start demo on backend with the explicit chosen genre!
       const demoResult = await api.startDemo("demo_stream.jsonl", 0, chosenGenre);
-      
-      // 2. Fetch full analysis to initialize the states
       const res = await api.getFullAnalysis(demoResult.stream_id, chosenGenre);
       
-      // 3. Save static metadata ONCE to prevent update-re-render cycle!
       setActiveStream({
         id: res.stream.id,
         source: res.stream.source,
@@ -125,14 +116,12 @@ export default function DemoStreamPage() {
     }
   }, []);
 
-  // 🔥 AUTO-RUN ON MOUNT: Run mixed baseline demo immediately when landing on the page
   useEffect(() => {
     if (!token || ranOnce.current) return;
     ranOnce.current = true;
     handleRunDemoWithGenre("mixed");
   }, [token, handleRunDemoWithGenre]);
 
-  // 🔥 DECOUPLED DYNAMIC UPDATER (Does not depend on the activeStream object!)
   const fetchSignals = useCallback(async (streamId: string, genreToFetch: string) => {
     try {
       const res = await api.getFullAnalysis(streamId, genreToFetch);
@@ -152,11 +141,9 @@ export default function DemoStreamPage() {
     }
   }, []);
 
-  // Polling hook tied STRICTLY to primitive values (streamId, activeGenre)
   useEffect(() => {
     if (!activeStream?.id) return;
 
-    // Trigger update immediately
     fetchSignals(activeStream.id, activeGenre);
 
     const interval = setInterval(() => {
@@ -166,7 +153,6 @@ export default function DemoStreamPage() {
     return () => clearInterval(interval);
   }, [activeStream?.id, activeGenre, selectedCategory, fetchSignals]);
 
-  // Handle Dynamic Genre Slider Changes smoothly without re-rendering loop
   const handleGenreChange = async (newGenre: string) => {
     if (!activeStream?.id) return;
     
@@ -174,10 +160,7 @@ export default function DemoStreamPage() {
     setActiveGenre(newGenre);
     try {
       toast.info(`Recalibrating context space to: ${newGenre.toUpperCase()}...`);
-      
-      // 🔥 FAST SWITCH: Fetch dynamically morphed data directly without starting a new demo session!
       await fetchSignals(activeStream.id, newGenre);
-
       toast.success(`Context space calibrated to: ${newGenre.toUpperCase()}! 🎯`);
     } catch (e: any) {
       toast.error(e?.message || "Recalibration failed");
@@ -242,7 +225,6 @@ export default function DemoStreamPage() {
 
   return (
     <main className="min-h-screen gradient-bg pb-12 relative z-10">
-      {/* Dynamic reset button without modal friction */}
       <Header
         channelTitle="PULSE Command Center"
         isLive={!!activeStream}
@@ -253,8 +235,6 @@ export default function DemoStreamPage() {
       <MonetizationTip pulseScore={pulseScore} isLive={!!activeStream} />
 
       <div className="max-w-[1600px] mx-auto px-6 pt-6">
-        
-        {/* Isolated Context Slider */}
         <ContextSlider 
           activeGenre={activeGenre} 
           onGenreChange={handleGenreChange} 
@@ -262,7 +242,6 @@ export default function DemoStreamPage() {
         />
 
         <div className="flex items-center justify-between mb-4">
-          {/* 🔥 Dynamic Context-Aware Back Button */}
           <button
             onClick={handleBack}
             className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200 transition font-mono"
@@ -444,5 +423,19 @@ export default function DemoStreamPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function DemoStreamPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen gradient-bg flex items-center justify-center">
+          <Loader label="Opening Demo Command Center..." />
+        </main>
+      }
+    >
+      <DemoStreamContent />
+    </Suspense>
   );
 }
