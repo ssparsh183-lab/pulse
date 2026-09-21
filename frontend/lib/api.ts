@@ -55,6 +55,9 @@ export async function fetchApi<T>(
     headers.set("Content-Type", "application/json");
   }
 
+  // 🔥 BYPASS NGROK FREE TIER WARNING PAGE (Add this line!)
+  headers.set("ngrok-skip-browser-warning", "true");
+
   if (requireAuth) {
     const token = getStoredToken();
     if (token) {
