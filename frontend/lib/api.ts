@@ -1,3 +1,5 @@
+// frontend/lib/api.ts
+
 import { API_BASE_URL, ENDPOINTS } from "./constants";
 import { useAuthStore } from "@/store/auth";
 import type {
@@ -44,7 +46,7 @@ export async function fetchApi<T>(
     requireAuth = true,
     headers: customHeaders,
     query,
-    timeoutMs = 30000,
+    timeoutMs = 120000, 
     ...fetchOptions
   } = options;
 
@@ -113,6 +115,21 @@ export interface InjectResponse {
   signal: any | null;
 }
 
+export interface TelegramChannelItem {
+  id: string;
+  title: string;
+  username?: string | null;
+  members_count: number;
+  is_creator: boolean;
+  is_broadcast: boolean;
+  unread_count: number;
+}
+
+export interface TelegramChannelsResponse {
+  created: TelegramChannelItem[];
+  joined: TelegramChannelItem[];
+}
+
 export const api = {
   getGoogleAuthUrl: () =>
     fetchApi<{ auth_url: string }>(ENDPOINTS.authGoogleUrl, {
@@ -132,12 +149,15 @@ export const api = {
   getMe: () => fetchApi<User>(ENDPOINTS.authMe),
 
   getWorkspace: () =>
-    fetchApi<WorkspaceData>(ENDPOINTS.workspace, { timeoutMs: 30000 }),
+    fetchApi<WorkspaceData>(ENDPOINTS.workspace, { timeoutMs: 120000 }),
 
   listStreams: (status?: string) =>
     fetchApi<Stream[]>(ENDPOINTS.streams, { query: { status } }),
 
-  getStream: (id: string) => fetchApi<Stream>(ENDPOINTS.streamById(id)),
+  getStream: (id: string, genre: string = "mixed") => 
+    fetchApi<Stream>(ENDPOINTS.streamById(id), {
+      query: { genre }
+    }),
 
   startStream: (data: StreamStartRequest) =>
     fetchApi<Stream>(ENDPOINTS.streamStart, {
@@ -150,9 +170,9 @@ export const api = {
       method: "POST",
     }),
 
-  getStreamSignals: (id: string, category?: string) =>
+  getStreamSignals: (id: string, category?: string, genre: string = "mixed") =>
     fetchApi<Signal[]>(ENDPOINTS.streamSignals(id), {
-      query: { category },
+      query: { category, genre },
     }),
 
   fetchLiveChat: (id: string, liveChatId: string, pageToken?: string) =>
@@ -177,18 +197,20 @@ export const api = {
       text: string;
       participant_name?: string;
       participant_id?: string;
-    }
+    },
+    genre: string = "mixed"
   ) =>
     fetchApi<InjectResponse>(ENDPOINTS.streamInject(streamId), {
       method: "POST",
       body: JSON.stringify(payload),
+      query: { genre }
     }),
 
   analyzeVideo: (videoId: string, maxPages: number = 5) =>
     fetchApi<VideoAnalyzeResult>(ENDPOINTS.videoAnalyze(videoId), {
       method: "POST",
       query: { max_pages: maxPages },
-      timeoutMs: 45000,
+      timeoutMs: 120000,
     }),
 
   getVideoSignals: (videoId: string, category?: string) =>
@@ -199,12 +221,11 @@ export const api = {
   getVideoSummary: (videoId: string) =>
     fetchApi<VideoSummary>(ENDPOINTS.videoSummary(videoId)),
 
-  // ⚡ Demo Timeout Bumped to 60s for Heavy Ingestion
-  startDemo: (dataset: string = "demo_stream.jsonl", speed: number = 0) =>
+  startDemo: (dataset: string = "demo_stream.jsonl", speed: number = 0, genre: string = "mixed") =>
     fetchApi<DemoResult>(ENDPOINTS.demoStart, {
       method: "POST",
-      query: { dataset, speed },
-      timeoutMs: 60000,
+      query: { dataset, speed, genre },
+      timeoutMs: 120000,
     }),
 
   previewDemo: (dataset: string = "demo_stream.jsonl", limit: number = 10) =>
@@ -213,26 +234,34 @@ export const api = {
       query: { dataset, limit },
     }),
 
-  getPulseScore: (streamId: string) =>
-    fetchApi<any>(`/api/streams/${streamId}/score`),
+  getPulseScore: (streamId: string, genre: string = "mixed") =>
+    fetchApi<any>(`/api/streams/${streamId}/score`, { query: { genre } }),
 
-  getAudienceDNA: (streamId: string) =>
-    fetchApi<any>(`/api/streams/${streamId}/audience`),
+  getAudienceDNA: (streamId: string, genre: string = "mixed") =>
+    fetchApi<any>(`/api/streams/${streamId}/audience`, { query: { genre } }),
 
-  getTimeline: (streamId: string) =>
-    fetchApi<any>(`/api/streams/${streamId}/timeline`),
+  getTimeline: (streamId: string, genre: string = "mixed") =>
+    fetchApi<any>(`/api/streams/${streamId}/timeline`, { query: { genre } }),
 
-  getFullAnalysis: (streamId: string) =>
-    fetchApi<any>(`/api/streams/${streamId}/full-analysis`),
+  getFullAnalysis: (streamId: string, genre: string = "mixed") =>
+    fetchApi<any>(`/api/streams/${streamId}/full-analysis`, {
+      query: { genre }
+    }),
+
+  getCovrtAutopsy: (targetUrl: string, genre: string = "mixed") =>
+    fetchApi<any>("/api/intel/covert-autopsy", {
+      query: { target: targetUrl, genre },
+      timeoutMs: 120000,
+    }),
 
   getExportUrl: (streamId: string) => {
     const token = getStoredToken();
     return `${API_BASE_URL}/api/streams/${streamId}/export?token=${token || ""}`;
   },
 
-  downloadExport: async (streamId: string) => {
+  downloadExport: async (streamId: string, genre: string = "mixed") => {
     const token = getStoredToken();
-    const res = await fetch(`${API_BASE_URL}/api/streams/${streamId}/export`, {
+    const res = await fetch(`${API_BASE_URL}/api/streams/${streamId}/export?genre=${genre}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) throw new Error("Export failed");
@@ -252,4 +281,128 @@ export const api = {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   },
+
+  sendTelegramCode: (phoneNumber: string) =>
+    fetchApi<{ ok: boolean; phone_number: string; phone_code_hash: string; message: string }>(
+      "/api/telegram/auth/send-code",
+      {
+        method: "POST",
+        body: JSON.stringify({ phone_number: phoneNumber }),
+      }
+    ),
+
+  verifyTelegramCode: (data: {
+    phone_number: string;
+    phone_code_hash: string;
+    code: string;
+    password?: string;
+  }) =>
+    fetchApi<{ ok: boolean; status: string; phone_number: string; message: string }>(
+      "/api/telegram/auth/verify-code",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    ),
+
+  getTelegramChannels: () =>
+    fetchApi<TelegramChannelsResponse>("/api/telegram/channels"),
+
+  getTelegramChannelFeed: (channelId: string) =>
+    fetchApi<any>(`/api/telegram/channel/${channelId}/feed`),
+
+  disconnectTelegram: () =>
+    fetchApi<any>("/api/telegram/auth/disconnect", { method: "POST" }),
+
+  analyzeTelegramChannel: (channelId: string) => 
+    fetchApi<any>(`/api/telegram/channel/${channelId}/analyze`),
+
+  downloadTelegramExport: async (channelId: string) => {
+    const token = getStoredToken();
+    const res = await fetch(`${API_BASE_URL}/api/telegram/channel/${channelId}/export`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error("Export failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pulse_tg_autopsy_${channelId}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  // 🔥 NEW: Spawns / Fetches Exact-Timeline Session Autopsy for Past Telegram Streams!
+  getTelegramSessionAutopsy: (channelId: string, sessionMsgId: string) =>
+    fetchApi<{ stream_id: string }>(`/api/telegram/channel/${channelId}/session/${sessionMsgId}/autopsy`, {
+      method: "POST",
+    }),
+
+// ==================== TWITTER / X API ====================
+  getTwitterMe: () =>
+    fetchApi<{ connected: boolean; handle?: string }>("/api/twitter/me"),
+
+  disconnectTwitter: () =>
+    fetchApi<any>("/api/twitter/auth/disconnect", { method: "POST" }),
+
+  getTwitterAuthUrl: () =>
+    fetchApi<{ auth_url: string }>("/api/twitter/auth/url"),
+
+  twitterCallback: (code: string, state: string) =>
+    fetchApi<any>("/api/twitter/auth/callback", {
+      method: "POST",
+      body: JSON.stringify({ code, state }),
+    }),
+  
+  getTwitterHandles: () =>
+    fetchApi<any[]>("/api/twitter/handles"),
+
+  getTwitterHandleFeed: (handle: string) =>
+    fetchApi<any>(`/api/twitter/handles/${encodeURIComponent(handle)}/feed`),
+
+  getTwitterIncidents: (status?: string, handle?: string) =>
+    fetchApi<any[]>("/api/twitter/incidents", { query: { status, handle } }),
+
+  getTwitterTweetsStream: (handle: string) =>
+    fetchApi<any[]>(`/api/twitter/handles/${encodeURIComponent(handle)}/tweets`),
+
+  addressTwitterIncident: (incidentId: string, replyText: string, officerName?: string) =>
+    fetchApi<any>(`/api/twitter/incidents/${incidentId}/address`, {
+      method: "POST",
+      body: JSON.stringify({ reply_text: replyText, officer_name: officerName }),
+    }),
+
+  resetTwitterDemo: () =>
+    fetchApi<any>("/api/twitter/reset", { method: "POST" }),
+
+  downloadTwitterReport: async (incidentId: string) => {
+    const res = await fetch(`${API_BASE_URL}/api/twitter/incidents/${incidentId}/report`);
+    if (!res.ok) throw new Error("Report download failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pulse_incident_autopsy_${incidentId}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+  getTwitterPostAutopsy: (postId: string, handle?: string) =>
+    fetchApi<any>(`/api/twitter/posts/${postId}/autopsy`, { query: { handle } }),
+
+  startTwitterLiveSpace: (handle: string, title?: string) =>
+    fetchApi<{ stream_id: string }>(`/api/twitter/handles/${encodeURIComponent(handle)}/live-session`, {
+      method: "POST",
+      body: JSON.stringify({ title }),
+    }),
+
+  getTwitterSpaceAutopsy: (handle: string, sessionId: string, duration?: number) =>
+    fetchApi<{ stream_id: string }>(`/api/twitter/handles/${encodeURIComponent(handle)}/session/${sessionId}/autopsy`, {
+      method: "POST",
+      query: { duration },
+    }),
 };
+

@@ -26,17 +26,16 @@ router = APIRouter()
 async def start_demo(
     dataset: str = Query(DEFAULT_DATASET, description="Dataset filename"),
     speed: float = Query(0.0, ge=0.0, le=100.0, description="0=instant, 1=real-time, 10=10x fast"),
+    genre: str = Query("general", description="Stream context/genre"), # <--- Added genre Query!
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Start a demo replay stream.
-    speed=0 means process all messages instantly (for quick testing).
-    speed=1 means real-time (for live demo).
-    speed=10 means 10x faster (for compressed demo).
+    Start a demo replay stream with selected context genre.
     """
     try:
-        stream = create_demo_stream(db, current_user, dataset)
+        # Pass genre to create stream dynamically in DB
+        stream = create_demo_stream(db, current_user, dataset, genre=genre)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

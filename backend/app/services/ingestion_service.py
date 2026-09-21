@@ -1,17 +1,7 @@
-"""
-PULSE — Ingestion Service
-
-Bridge between platform data (YouTube) and the PULSE engine.
-Handles:
-  - Converting platform messages to NormalizedMessage
-  - Running through engine
-  - Persisting to database
-  - Managing per-stream engine instances
-"""
+# backend/app/services/ingestion_service.py
 
 from datetime import datetime
 from typing import Optional
-
 from sqlalchemy.orm import Session
 
 from app.models.stream import Stream, StreamStatus
@@ -21,46 +11,47 @@ from app.models.signal_membership import SignalMembership
 from app.pulse_engine.engine import PulseEngine
 from app.pulse_engine.domain import NormalizedMessage, MessageOutcome
 
-
-# Cache of PulseEngine instances per stream (in-memory for now)
-# In production, this would be Redis-backed for multi-worker setups
+# In-memory compound engine caches for the 4 isolated brains
 _engine_cache: dict[str, PulseEngine] = {}
 
+AVAILABLE_GENRES = ["mixed", "coding", "gaming"]
 
-def get_engine_for_stream(stream_id: str) -> PulseEngine:
-    """Get or create the PulseEngine instance for a stream."""
-    if stream_id not in _engine_cache:
-        _engine_cache[stream_id] = PulseEngine(stream_id=stream_id)
-    return _engine_cache[stream_id]
-
+def get_engine_for_stream(stream_id: str, genre: Optional[str] = None, db: Session = None) -> PulseEngine:
+    """
+    Get or create an isolated PulseEngine session for this stream and specific context genre.
+    Maintains 4 parallel brain states simultaneously.
+    """
+    resolved_genre = genre
+    if not resolved_genre and db:
+        stream = db.query(Stream).filter(Stream.id == stream_id).first()
+        if stream and stream.genre:
+            resolved_genre = stream.genre
+            
+    genre_clean = (resolved_genre or "mixed").lower()
+    if genre_clean not in AVAILABLE_GENRES:
+        genre_clean = "mixed"
+    
+    engine_key = f"{stream_id}_{genre_clean}"
+    if engine_key not in _engine_cache:
+        _engine_cache[engine_key] = PulseEngine(stream_id=stream_id, genre=genre_clean)
+        
+    return _engine_cache[engine_key]
 
 def clear_engine_cache(stream_id: str) -> None:
-    """Remove engine from cache (when stream ends)."""
-    _engine_cache.pop(stream_id, None)
+    keys_to_remove = [k for k in _engine_cache.keys() if k.startswith(f"{stream_id}_") or k == stream_id]
+    for k in keys_to_remove:
+        _engine_cache.pop(k, None)
 
 
-def ingest_youtube_message(
-    db: Session,
-    stream: Stream,
-    youtube_msg: dict,
-) -> Optional[dict]:
+def ingest_youtube_message(db: Session, stream: Stream, youtube_msg: dict) -> Optional[dict]:
     """
-    Process a single YouTube chat message through the engine and persist.
-    
-    Args:
-        db: SQLAlchemy session
-        stream: Stream ORM object
-        youtube_msg: Dict from YouTubeService.fetch_live_chat_messages()
-    
-    Returns:
-        Dict with outcome info, or None if invalid
+    Ingests a message across ALL 4 parallel context brains simultaneously
+    so that background states are fully pre-computed and instant on tab switch.
     """
-    # Parse published_at ISO string
     published_at = datetime.fromisoformat(
         youtube_msg["published_at"].replace("Z", "+00:00")
-    ).replace(tzinfo=None)  # store as naive UTC
+    ).replace(tzinfo=None)
 
-    # Build NormalizedMessage for engine
     norm_msg = NormalizedMessage(
         platform="youtube",
         stream_id=stream.id,
@@ -73,11 +64,19 @@ def ingest_youtube_message(
         is_owner=youtube_msg.get("is_owner", False),
     )
 
-    # Run through engine
-    engine = get_engine_for_stream(stream.id)
-    result = engine.ingest(norm_msg)
+    primary_result = None
 
-    # Persist message to DB
+    # 🔥 PARALLEL 4-BRAIN DISPATCH: Ingest into all 4 brains concurrently!
+    for g in AVAILABLE_GENRES:
+        brain_engine = get_engine_for_stream(stream.id, genre=g, db=db)
+        res = brain_engine.ingest(norm_msg)
+        if g == (stream.genre or "mixed").lower():
+            primary_result = res
+
+    if not primary_result:
+        primary_result = get_engine_for_stream(stream.id, genre="mixed", db=db).ingest(norm_msg)
+
+    # Persist primary raw message in database
     msg_row = MessageModel(
         stream_id=stream.id,
         platform="youtube",
@@ -86,55 +85,34 @@ def ingest_youtube_message(
         participant_name=norm_msg.participant_name,
         text_original=norm_msg.text,
         text_cleaned=None,
-        is_valid=result.outcome != MessageOutcome.IGNORED_EMPTY,
-        invalid_reason=None if result.outcome != MessageOutcome.IGNORED_EMPTY else "preprocess_dropped",
-        signal_id=result.signal.id if result.signal else None,
-        similarity_score=result.similarity_score,
+        is_valid=primary_result.outcome != MessageOutcome.IGNORED_EMPTY,
+        invalid_reason=None if primary_result.outcome != MessageOutcome.IGNORED_EMPTY else "preprocess_dropped",
+        signal_id=primary_result.signal.id if primary_result.signal else None,
+        similarity_score=primary_result.similarity_score,
         timestamp=norm_msg.timestamp,
     )
     db.add(msg_row)
 
-    # Persist/update signal if we have one
-    if result.signal:
-        _upsert_signal(db, stream.id, result.signal, norm_msg)
+    if primary_result.signal:
+        _upsert_signal(db, stream.id, primary_result.signal, norm_msg)
 
-    # Update stream stats
     stream.total_messages += 1
-    if result.outcome == MessageOutcome.CREATED_NEW_SIGNAL:
+    if primary_result.outcome == MessageOutcome.CREATED_NEW_SIGNAL:
         stream.total_signals += 1
 
     db.commit()
 
     return {
-        "outcome": result.outcome.value,
-        "signal_id": result.signal.id if result.signal else None,
-        "signal_label": result.signal.label if result.signal else None,
-        "similarity_score": result.similarity_score,
+        "outcome": primary_result.outcome.value,
+        "signal_id": primary_result.signal.id if primary_result.signal else None,
+        "signal_label": primary_result.signal.label if primary_result.signal else None,
+        "similarity_score": primary_result.similarity_score,
     }
 
 
-def _upsert_signal(
-    db: Session,
-    stream_id: str,
-    engine_signal,
-    norm_msg: NormalizedMessage,
-) -> None:
-    """
-    Insert or update the persisted Signal row + membership.
-    Uses merge() to safely handle both new and existing signals
-    without duplicate-key errors from SQLAlchemy identity map.
-    """
-    # Check if already exists in DB
+def _upsert_signal(db: Session, stream_id: str, engine_signal, norm_msg: NormalizedMessage) -> None:
     existing = db.query(SignalModel).filter(SignalModel.id == engine_signal.id).first()
-
     if existing is None:
-        # Check if already pending in current session (identity map)
-        pending = db.get(SignalModel, engine_signal.id)
-        if pending is not None:
-            existing = pending
-
-    if existing is None:
-        # Truly new — insert
         row = SignalModel(
             id=engine_signal.id,
             stream_id=stream_id,
@@ -142,7 +120,7 @@ def _upsert_signal(
             representative_messages=list(engine_signal.representative_messages),
             category=engine_signal.category,
             category_confidence=engine_signal.category_confidence,
-            state=engine_signal.state.value,
+            state=engine_signal.state.value if hasattr(engine_signal.state, 'value') else str(engine_signal.state),
             unique_participant_count=engine_signal.unique_support,
             message_count=engine_signal.message_count,
             momentum=engine_signal.momentum,
@@ -155,14 +133,13 @@ def _upsert_signal(
             last_seen_at=engine_signal.last_seen_at,
         )
         db.add(row)
-        db.flush()  # push to DB immediately so subsequent queries find it
+        db.flush()
     else:
-        # Update existing signal
         existing.label = engine_signal.label
         existing.representative_messages = list(engine_signal.representative_messages)
         existing.category = engine_signal.category
         existing.category_confidence = engine_signal.category_confidence
-        existing.state = engine_signal.state.value
+        existing.state = engine_signal.state.value if hasattr(engine_signal.state, 'value') else str(engine_signal.state)
         existing.unique_participant_count = engine_signal.unique_support
         existing.message_count = engine_signal.message_count
         existing.momentum = engine_signal.momentum
@@ -174,7 +151,6 @@ def _upsert_signal(
         existing.last_seen_at = engine_signal.last_seen_at
         existing.updated_at = datetime.utcnow()
 
-    # Track membership (unique participant per signal)
     membership_exists = (
         db.query(SignalMembership)
         .filter(
@@ -191,16 +167,10 @@ def _upsert_signal(
             joined_at=norm_msg.timestamp,
         )
         db.add(membership)
-def ingest_batch(
-    db: Session,
-    stream: Stream,
-    youtube_messages: list[dict],
-) -> dict:
-    """
-    Batch process multiple messages. Returns summary stats.
-    """
-    outcomes = {"attached": 0, "new_signal": 0, "ignored": 0}
 
+
+def ingest_batch(db: Session, stream: Stream, youtube_messages: list[dict]) -> dict:
+    outcomes = {"attached": 0, "new_signal": 0, "ignored": 0}
     for msg in youtube_messages:
         try:
             result = ingest_youtube_message(db, stream, msg)
@@ -212,8 +182,6 @@ def ingest_batch(
                 outcomes["attached"] += 1
             else:
                 outcomes["ignored"] += 1
-        except Exception as e:
-            print(f"Error ingesting message {msg.get('message_id')}: {e}")
+        except Exception:
             continue
-
     return outcomes

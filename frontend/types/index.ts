@@ -52,6 +52,7 @@ export interface PastVideo {
 export interface WorkspaceData {
   user: User;
   channel: Channel;
+  channels?: Channel[]; // <--- Yeh line add kar de bhai!
   live_now: LiveStream[];
   upcoming: UpcomingStream[];
   past_videos: PastVideo[];
@@ -70,6 +71,7 @@ export interface Stream {
   total_messages: number;
   total_signals: number;
   unique_participants: number;
+  genre?: string | null;            // <--- Added genre
   started_at?: string | null;
   ended_at?: string | null;
   created_at: string;
@@ -79,7 +81,9 @@ export interface StreamStartRequest {
   source: string;
   external_id: string;
   title?: string;
+  genre?: string;                  // <--- Added genre
 }
+
 
 export type SignalState = "noise" | "emerging" | "rising" | "active" | "declining" | "resolved" | "re_emerging";
 export type SignalCategory = "technical_issue" | "doubt" | "content_request" | "feedback" | "engagement" | "off_topic" | "unclassified";

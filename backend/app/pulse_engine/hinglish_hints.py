@@ -1,142 +1,85 @@
-"""
-PULSE — Hinglish & Global Slang Dictionary (Unfiltered & Complete)
-
-Maps Indian slangs, regional abuses, Twitch gaming terms, Hinglish idioms,
-and stream crash words to clean semantic English for vector math.
-"""
+# backend/app/pulse_engine/hinglish_hints.py
 
 import re
 
-
 HINGLISH_HINTS: dict[str, str] = {
-    # 🔴 AUDIO / VISUAL
+    # 🔴 AUDIO / VISUAL (All map directly to 'audio')
+    "sound": "audio",
+    "voice": "audio",
+    "mic": "audio",
+    "hear": "audio",
+    "listen": "audio",
     "awaz": "audio",
     "aawaz": "audio",
     "awaaz": "audio",
     "aawaaz": "audio",
-    "sunai": "hearing",
-    "dikh": "visible",
-    "dikhai": "visible",
-    "dikhra": "visible showing",
-    "dikhri": "visible showing",
-    "gayab": "disappeared broken black_screen",
-    "blur": "technical_issue visual_problem blur",
+    "sunai": "audio",
+    "dikh": "video",
+    "dikhai": "video",
+    "dikhra": "video",
+    "dikhri": "video",
+    "gayab": "video black_screen",
+    "blur": "video blur",
 
-    # 🔴 TECHNICAL & STREAM CRASH SLANGS
-    "lag": "lagging buffering stream_lag",
-    "freeze": "frozen stuck screen_frozen",
+    # 🔴 TECHNICAL & STREAM CRASH
+    "lag": "lagging buffering",
+    "freeze": "frozen stuck",
     "buffer": "buffering",
     "hang": "freeze",
     "atak": "stuck",
-    "atka": "stuck",
-    "atki": "stuck",
-    "ruk": "stuck stopped",
-    "hug": "crashed lag",
-    "hag": "crashed lag",
-    "hagg": "crashed lag",
-    "potato": "bad slow lag",
-    "ded": "dead broken offline",
+    "ruk": "stuck",
+    "hug": "lag",
+    "potato": "lag",
+    "ded": "broken",
 
-    # 🟢 INDIAN HYPE & POSITIVE SLANGS
-    "op": "overpowered excellent great",
-    "bawal": "great excellent awesome",
-    "bawaal": "great excellent awesome",
-    "gazab": "great excellent",
-    "faad": "excellent amazing",
+    # 🟢 HYPE & POSITIVE PRAISE (Pure Universal Sentiment)
+    "op": "great awesome",
+    "bawal": "great awesome",
+    "gazab": "great awesome",
+    "faad": "great awesome",
     "kadak": "great perfect",
-    "lallantop": "excellent great",
-    "zeher": "amazing great",
-    "jhakaas": "excellent perfect",
-    "kaint": "awesome great",
-    "macha": "rocked excellent",
-    "mast": "great",
-    "badhiya": "great",
-    "zabardast": "excellent",
-    "mza": "enjoyable",
-    "maza": "enjoyable",
+    "mast": "great awesome",
+    "badhiya": "great awesome",
+    "zabardast": "great awesome",
+    "loved": "great awesome loved",
+    "amazing": "great awesome",
 
-    # 🟢 GLOBAL TWITCH / GAMING HYPE SLANGS
-    "w": "win great success positive winning",
-    "pog": "amazing excited",
-    "poggers": "amazing excited",
-    "sheesh": "amazing impressed",
-    "lit": "fire amazing",
-    "crazy": "hype praise awesome excellent crazy",
-    "crazyyy": "hype praise awesome excellent crazy",
+    # 🟡 INDIAN DOUBT SLANGS
+    "bouncer": "doubt confusion",
+    "palle": "doubt confusion",
+    "hawa": "doubt confusion",
+    "ghanta": "doubt confusion",
+    "samajh": "doubt",
+    "samjhao": "doubt explain",
+    "batao": "doubt explain",
 
-    # 🟡 INDIAN DOUBT & CONFUSION SLANGS
-    "bouncer": "did not understand confused",
-    "palle": "understand comprehend",
-    "hawa": "understand idea",
-    "ghanta": "nothing zero not",
-    "samajh": "understand",
-    "samjhao": "explain",
-    "batao": "explain",
-
-    # 🚫 INDIAN ABUSES & TOXICITY (Mapped to "abuse toxic noise" for Troll DNA classification)
+    # 🚫 TOXICITY
     "bc": "abuse toxic noise",
     "bhenchod": "abuse toxic noise",
     "mc": "abuse toxic noise",
     "madarchod": "abuse toxic noise",
     "bsdk": "abuse toxic noise",
-    "bhosdike": "abuse toxic noise",
-    "chutiya": "abuse toxic stupid",
-    "chutiye": "abuse toxic stupid",
-    "lodu": "abuse toxic noise",
-    "lund": "abuse toxic noise",
-    "kutta": "abuse toxic dog",
-    "kaminey": "abuse toxic",
-    "saale": "abuse toxic",
-    "harami": "abuse toxic",
-    "randi": "abuse toxic",
-    "bhadwe": "abuse toxic",
-    "bakwas": "bad useless noise",
+    "chutiya": "abuse toxic",
+    "lodu": "abuse toxic",
+    "bakwas": "bad noise",
 
-    # 🚫 GLOBAL TOXIC & NEGATIVE SLANGS
-    "wtf": "what the fuck angry confused",
-    "stfu": "shut up toxic",
-    "shit": "bad trash garbage",
-    "trash": "bad garbage",
-    "mid": "average boring",
-    "l": "lose bad failure",
-    "cringe": "bad awkward",
-    "f": "sad failure respect",
-
-    # 🔵 GRAMMAR, SHORT FORMS & NEGATIONS
+    # 🔵 GRAMMAR SHORT FORMS
     "ni": "nahi",
     "nhi": "nahi",
     "nai": "nahi",
-    "nahin": "nahi",
     "rhi": "rahi",
     "rha": "raha",
-    "rhe": "rahe",
     "aara": "raha",
     "aari": "rahi",
-    "aare": "rahe",
-    "hora": "raha",
-    "hori": "rahi",
-    "gya": "gaya",
-    "gyi": "gayi",
     "dikkat": "problem",
-    "lagra": "seems",
-    "lagri": "seems",
-    "kharab": "broken bad",
-    "sahi": "correct",
-    "theek": "fine",
     "dubara": "again",
     "phirse": "again",
-    "wapas": "again",
-    "vapas": "again",
-    "jaldi": "fast",
-    "aaram": "slow",
-    "aaraam": "slow",
 
-    # 📚 CONTENT
-    "recording": "video replay",
-    "notes": "material",
-    "playlist": "videos",
+    # 📚 CONTENT REQUESTS
+    "recording": "recording video",
+    "notes": "notes material",
+    "playlist": "playlist link",
 }
-
 
 def inject_hints(text: str) -> str:
     if not text:
@@ -144,14 +87,14 @@ def inject_hints(text: str) -> str:
 
     lowered = text.lower()
 
-    # 🔥 SMART NEGATION CONTEXT (Doubt vs Engagement)
-    if re.search(r'\bsamajh\b', lowered):
+    # 🔥 SMART NEGATION CONTEXT (Doubt vs Engagement): Handles both "samajh nahi" AND "clear nahi"
+    if re.search(r'\b(samajh|clear)\b', lowered):
         if re.search(r'\b(nahi|nhi|ni|nai|nahin|no|not)\b', lowered):
-            text += " doubt confusion not_understand"
+            text += " doubt confusion not_clear"
         else:
             text += " understood clear"
 
-    # 🔥 INDIAN SLANG NEGATION (Didn't understand at all)
+    # 🔥 INDIAN SLANG NEGATION
     if re.search(r'\b(bouncer|palle|ghanta|hawa)\b', lowered):
         text += " doubt confusion not_understand"
 
@@ -171,7 +114,3 @@ def inject_hints(text: str) -> str:
     if hints_to_add:
         return text + " " + " ".join(hints_to_add)
     return text
-
-
-def get_dictionary_size() -> int:
-    return len(HINGLISH_HINTS)

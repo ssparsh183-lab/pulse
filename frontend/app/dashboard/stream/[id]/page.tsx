@@ -1,3 +1,5 @@
+// frontend/app/dashboard/stream/[id]/page.tsx
+
 "use client";
 
 import { PulseScoreGauge } from "@/components/analytics/pulse-score-gauge";
@@ -15,6 +17,7 @@ import { CategoryFilter } from "@/components/dashboard/category-filter";
 import { SignalCard } from "@/components/signals/signal-card";
 import { Loader } from "@/components/shared/loader";
 import { MultilingualInject } from "@/components/dashboard/multilingual-inject";
+import { ContextSlider } from "@/components/dashboard/context-slider";
 import {
   ArrowLeft,
   Radio,
@@ -48,6 +51,9 @@ export default function LiveStreamPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [ending, setEnding] = useState(false);
 
+  // Active Context-Aware Sliding Genre State (Mixed by default!)
+  const [activeGenre, setActiveGenre] = useState<string>("mixed");
+
   const [pulseScore, setPulseScore] = useState<any>(null);
   const [audienceData, setAudienceData] = useState<any>(null);
 
@@ -58,16 +64,16 @@ export default function LiveStreamPage() {
     if (isHydrated && !token) router.replace("/");
   }, [isHydrated, token, router]);
 
-  // Initial Load
+  // Initial Load (Defaults to Mixed context baseline)
   useEffect(() => {
     if (!token || !streamId) return;
     (async () => {
       try {
         const [s, initialSigs, score, dna] = await Promise.all([
-          api.getStream(streamId),
-          api.getStreamSignals(streamId),
-          api.getPulseScore(streamId).catch(() => null),
-          api.getAudienceDNA(streamId).catch(() => null),
+          api.getStream(streamId, "mixed"),
+          api.getStreamSignals(streamId, undefined, "mixed"),
+          api.getPulseScore(streamId, "mixed").catch(() => null),
+          api.getAudienceDNA(streamId, "mixed").catch(() => null),
         ]);
         setStream(s);
         setSignals(initialSigs);
@@ -81,7 +87,7 @@ export default function LiveStreamPage() {
     })();
   }, [token, streamId]);
 
-  // 🔄 Real-Time Engine Polling & Chat Deduplication
+  // Real-Time Engine Polling & Auto-End Detection from X
   useEffect(() => {
     if (!token || !streamId) return;
     let cancelled = false;
@@ -96,7 +102,6 @@ export default function LiveStreamPage() {
           if (res.messages && res.messages.length > 0) {
             setChatMessages((prev) => {
               const combined = [...prev, ...res.messages];
-              // 🔥 Deduplication logic to strictly avoid duplicate keys crash
               const unique = combined.filter(
                 (msg, idx, self) =>
                   self.findIndex((m) => m.message_id === msg.message_id) === idx
@@ -107,16 +112,31 @@ export default function LiveStreamPage() {
         }
 
         const [sigs, score, dna, s] = await Promise.all([
-          api.getStreamSignals(streamId, selectedCategory || undefined),
-          api.getPulseScore(streamId).catch(() => null),
-          api.getAudienceDNA(streamId).catch(() => null),
-          api.getStream(streamId).catch(() => null),
+          api.getStreamSignals(streamId, selectedCategory || undefined, activeGenre),
+          api.getPulseScore(streamId, activeGenre).catch(() => null),
+          api.getAudienceDNA(streamId, activeGenre).catch(() => null),
+          api.getStream(streamId, activeGenre).catch(() => null),
         ]);
 
         if (sigs) setSignals(sigs);
         if (score) setPulseScore(score);
         if (dna) setAudienceData(dna);
-        if (s) setStream(s);
+
+        // 🔥 STEP 2: AUTO-DETECT STREAM CONCLUSION FROM X / TWITTER
+        if (s) {
+          setStream(s);
+          if (s.status === "ended") {
+            cancelled = true;
+            toast.info("Broadcast has concluded on X. Returning to Command Station...");
+            setTimeout(() => {
+              const h = s.external_id?.startsWith("x_live_")
+                ? `@${s.external_id.replace("x_live_", "").split("_")[0]}`
+                : "@sparshsharmai";
+              router.push(`/dashboard/twitter/channel?handle=${encodeURIComponent(h)}`);
+            }, 1000);
+            return;
+          }
+        }
       } catch (e) {}
 
       if (!cancelled) setTimeout(tick, 2500);
@@ -126,7 +146,7 @@ export default function LiveStreamPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, streamId, liveChatId, selectedCategory]);
+  }, [token, streamId, liveChatId, selectedCategory, activeGenre, router]);
 
   useEffect(() => {
     if (chatScrollRef.current) {
@@ -138,7 +158,7 @@ export default function LiveStreamPage() {
     try {
       await api.resolveSignal(streamId, sigId);
       toast.success("Resolved ✓");
-      setSignals((p) => p.filter((s) => s.id !== sigId));
+      fetchSignals();
     } catch {
       toast.error("Resolve failed");
     }
@@ -148,9 +168,37 @@ export default function LiveStreamPage() {
     try {
       await api.dismissSignal(streamId, sigId);
       toast.info("Dismissed");
-      setSignals((p) => p.filter((s) => s.id !== sigId));
+      fetchSignals();
     } catch {
       toast.error("Dismiss failed");
+    }
+  };
+
+  const fetchSignals = useCallback(async (genreToFetch = activeGenre) => {
+    if (!stream) return;
+    try {
+      const [sigs, score, dna] = await Promise.all([
+        api.getStreamSignals(stream.id, selectedCategory || undefined, genreToFetch),
+        api.getPulseScore(stream.id, genreToFetch).catch(() => null),
+        api.getAudienceDNA(stream.id, genreToFetch).catch(() => null),
+      ]);
+      setSignals(sigs);
+      if (score) setPulseScore(score);
+      if (dna) setAudienceData(dna);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [stream, selectedCategory, activeGenre]);
+
+  const handleGenreChange = async (newGenre: string) => {
+    if (!stream) return;
+    setActiveGenre(newGenre);
+    try {
+      toast.info(`Recalibrating context space to: ${newGenre.toUpperCase()}...`);
+      await fetchSignals(newGenre);
+      toast.success(`Context space calibrated to: ${newGenre.toUpperCase()}! 🎯`);
+    } catch (e: any) {
+      toast.error(e?.message || "Recalibration failed");
     }
   };
 
@@ -173,7 +221,7 @@ export default function LiveStreamPage() {
       ...prev,
       {
         message_id: `inj_${Date.now()}`,
-        author_name: "judge_demo",
+        author_name: "citizen_live",
         text: text,
         published_at: new Date().toISOString(),
         isNew: true,
@@ -189,7 +237,8 @@ export default function LiveStreamPage() {
     );
   }
 
-  // 🔥 RESTORED: GraphData generator for the Live Semantic Growth chart
+  const isXLiveStream = Boolean(stream?.external_id?.startsWith("x_live_"));
+
   const graphData = signals.slice(0, 5).map((sig) => ({
     name: sig.label.length > 15 ? sig.label.substring(0, 15) + "..." : sig.label,
     users: sig.unique_participant_count,
@@ -201,31 +250,58 @@ export default function LiveStreamPage() {
   });
 
   return (
-    <main className="min-h-screen gradient-bg pb-12">
-      <Header channelTitle={stream?.title || "Live Command Center"} isLive />
+    <main className="min-h-screen gradient-bg pb-12 relative z-10">
+      <Header channelTitle="PULSE Command Center" isLive />
 
       <MonetizationTip pulseScore={pulseScore} isLive />
 
       <div className="max-w-[1600px] mx-auto px-6 pt-6">
+        
+        <ContextSlider 
+          activeGenre={activeGenre} 
+          onGenreChange={handleGenreChange} 
+          disabled={ending} 
+        />
+
         <div className="flex items-center justify-between mb-4">
           <button
-            onClick={() => router.push("/dashboard")}
-            className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200 transition"
+            onClick={() => {
+              if (isXLiveStream) {
+                const h = `@${stream?.external_id?.replace("x_live_", "").split("_")[0]}`;
+                router.push(`/dashboard/twitter/channel?handle=${encodeURIComponent(h || "@sparshsharmai")}`);
+              } else {
+                router.push("/dashboard");
+              }
+            }}
+            className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200 transition font-mono"
           >
-            <ArrowLeft className="w-4 h-4" /> Back to Workspace
+            <ArrowLeft className="w-4 h-4" />
+            {isXLiveStream ? "Back to X Command Station" : "Back to Workspace"}
           </button>
+          
           <div className="flex items-center gap-3">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold font-mono">
               <Radio className="w-3.5 h-3.5 animate-pulse" /> LIVE STREAM RUNNING
             </div>
-            <button
-              onClick={handleEndStream}
-              disabled={ending}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-rose-500/10 hover:border-rose-500/40 hover:text-rose-400 text-zinc-400 text-xs font-semibold transition-colors"
-            >
-              <StopCircle className="w-3.5 h-3.5" />
-              {ending ? "Ending..." : "End Session"}
-            </button>
+            
+            {stream && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-[var(--brand-light)] text-xs font-bold uppercase font-mono tracking-wider shadow-[0_0_15px_rgba(168,85,247,0.15)] animate-bounce">
+                <Sparkles className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
+                {activeGenre === "coding" ? "CODING/EDUCATIONAL" : (activeGenre === "gaming" ? "GAMING/TECH" : "MIXED/GENERAL")} CONTEXT
+              </div>
+            )}
+
+            {/* Manual End Session button hidden for X Live Streams (X manages it via Auto-End) */}
+            {!isXLiveStream && (
+              <button
+                onClick={handleEndStream}
+                disabled={ending}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-rose-500/10 hover:border-rose-500/40 hover:text-rose-400 text-zinc-400 text-xs font-semibold transition-colors font-mono"
+              >
+                <StopCircle className="w-3.5 h-3.5" />
+                {ending ? "Ending..." : "End Session"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -252,16 +328,16 @@ export default function LiveStreamPage() {
 
             <div className="md:col-span-2 glass-panel rounded-3xl p-6 flex flex-col justify-center border-purple-500/10 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl pointer-events-none" />
-              <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mb-5 flex items-center gap-2">
+              <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mb-5 flex items-center gap-2 font-mono">
                 <Sparkles className="w-3.5 h-3.5 text-purple-400" /> Live Health Breakdown
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
                 {Object.entries(pulseScore.components || {}).map(([key, val]: any) => (
                   <div key={key} className="relative z-10">
-                    <div className="flex justify-between text-[10px] mb-1.5">
+                    <div className="flex justify-between text-[10px] mb-1.5 font-mono">
                       <span className="text-zinc-300 capitalize">{key.replace("_", " ")}</span>
-                      <span className="text-zinc-400 font-mono font-bold">{(val * 100).toFixed(0)}%</span>
+                      <span className="text-zinc-400 font-bold">{(val * 100).toFixed(0)}%</span>
                     </div>
                     <div className="h-1.5 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800/80">
                       <div
@@ -288,7 +364,7 @@ export default function LiveStreamPage() {
               <div className="p-3 border-b border-zinc-800/80 bg-zinc-950/60 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-purple-400" />
-                  <span className="text-xs font-bold text-zinc-200">Raw Chat Feed</span>
+                  <span className="text-xs font-bold text-zinc-200 font-mono">Raw Stream Feed</span>
                 </div>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">
                   {chatMessages.length} MSGS
@@ -297,8 +373,8 @@ export default function LiveStreamPage() {
 
               <div ref={chatScrollRef} className="flex-1 p-3 overflow-y-auto space-y-2">
                 {chatMessages.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-zinc-500 text-xs text-center p-6">
-                    <Sparkles className="w-6 h-6 text-purple-500/40 mb-2" /> Live stream active. Waiting for chats.
+                  <div className="h-full flex flex-col items-center justify-center text-zinc-500 text-xs text-center p-6 font-mono">
+                    <Sparkles className="w-6 h-6 text-purple-500/40 mb-2 animate-pulse" /> Live broadcast active. Waiting for citizen chats.
                   </div>
                 ) : (
                   chatMessages.map((msg, idx) => (
@@ -318,21 +394,24 @@ export default function LiveStreamPage() {
                           {new Date(msg.published_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </span>
                       </div>
-                      <p className="text-zinc-200 text-xs">{msg.text}</p>
+                      <p className="text-zinc-200 text-xs font-mono">{msg.text}</p>
                     </div>
                   ))
                 )}
               </div>
             </div>
 
-            <MultilingualInject streamId={streamId} onInjected={handleInjected} />
+            <MultilingualInject 
+              streamId={streamId} 
+              onInjected={handleInjected} 
+              genre={activeGenre}
+            />
           </div>
 
           <div className="lg:col-span-8 flex flex-col gap-4">
-            {/* 🔥 RESTORED: Live Semantic Growth Bar Chart */}
             <div className="glass-panel p-5 rounded-3xl flex flex-col h-[200px] mb-2 border border-zinc-800 bg-zinc-900/40">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-bold text-zinc-300">Live Semantic Growth</h3>
+                <h3 className="text-xs font-bold text-zinc-300 font-mono">Live Semantic Growth</h3>
                 <span className="text-[9px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-md font-mono uppercase tracking-widest flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" /> Liquid Render
                 </span>
@@ -360,9 +439,9 @@ export default function LiveStreamPage() {
             <CategoryFilter selected={selectedCategory} onSelect={setSelectedCategory} counts={categoryCounts} />
 
             {signals.length === 0 ? (
-              <div className="rounded-2xl border border-zinc-800 p-12 text-center">
+              <div className="rounded-2xl border border-zinc-800 p-12 text-center bg-zinc-900/10">
                 <CheckCircle2 className="w-8 h-8 text-purple-400 mx-auto mb-3 animate-pulse" />
-                <p className="text-zinc-400 text-sm mb-4">Awaiting audience consensus...</p>
+                <p className="text-zinc-400 text-sm mb-4 font-mono">Awaiting audience consensus...</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

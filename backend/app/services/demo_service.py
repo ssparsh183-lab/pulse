@@ -1,12 +1,4 @@
-"""
-PULSE — Demo Replay Service
-
-Loads a deterministic dataset and streams it through the engine
-at accelerated (or real-time) speed. Used for:
-  - Demo day backup (no internet dependency)
-  - Testing engine behavior
-  - Frontend development without real YouTube stream
-"""
+# backend/app/services/demo_service.py
 
 import asyncio
 import json
@@ -18,16 +10,16 @@ from sqlalchemy.orm import Session
 
 from app.models.stream import Stream, StreamStatus, StreamSource
 from app.models.user import User
+from app.models.message import Message as MessageModel
 from app.pulse_engine.domain import NormalizedMessage
-from app.services.ingestion_service import get_engine_for_stream
+from app.services.ingestion_service import get_engine_for_stream, AVAILABLE_GENRES
+from app.api.videos import _safe_persist_signal
 
-
-DATASETS_DIR = Path(__file__).parent.parent.parent / "datasets"
+DATASETS_DIR = Path(__file__).resolve().parent.parent.parent / "datasets"
 DEFAULT_DATASET = "demo_stream.jsonl"
 
 
 def load_demo_messages(dataset_name: str = DEFAULT_DATASET) -> list[dict]:
-    """Load messages from a JSONL dataset file."""
     path = DATASETS_DIR / dataset_name
     if not path.exists():
         raise FileNotFoundError(f"Dataset not found: {path}")
@@ -41,8 +33,11 @@ def load_demo_messages(dataset_name: str = DEFAULT_DATASET) -> list[dict]:
     return messages
 
 
-def create_demo_stream(db: Session, user: User, dataset_name: str = DEFAULT_DATASET) -> Stream:
-    """Create a Stream row for a demo replay session."""
+def create_demo_stream(db: Session, user: User, dataset_name: str = DEFAULT_DATASET, genre: str = "mixed") -> Stream:
+    clean_genre = (genre or "mixed").lower()
+    if clean_genre not in AVAILABLE_GENRES:
+        clean_genre = "mixed"
+
     stream = Stream(
         user_id=user.id,
         source=StreamSource.DEMO,
@@ -50,6 +45,7 @@ def create_demo_stream(db: Session, user: User, dataset_name: str = DEFAULT_DATA
         title=f"Demo Replay: {dataset_name}",
         status=StreamStatus.LIVE,
         started_at=datetime.utcnow(),
+        genre=clean_genre,
     )
     db.add(stream)
     db.commit()
@@ -61,18 +57,8 @@ async def replay_stream(
     db: Session,
     stream: Stream,
     dataset_name: str = DEFAULT_DATASET,
-    speed_multiplier: float = 1.0,
+    speed_multiplier: float = 0.0,
 ) -> dict:
-    """
-    Replay messages through the engine with simulated timing.
-    
-    Args:
-        speed_multiplier: 1.0 = real-time, 10.0 = 10x faster, 0.0 = instant
-    
-    Returns summary stats.
-    """
-    from app.api.videos import _safe_persist_signal  # reuse safe helper
-
     messages = load_demo_messages(dataset_name)
     if not messages:
         return {"error": "No messages in dataset"}
@@ -82,10 +68,14 @@ async def replay_stream(
     last_offset = 0
     processed = 0
 
-    engine = get_engine_for_stream(stream.id)
+    clean_genre = (stream.genre or "mixed").lower()
+    if clean_genre not in AVAILABLE_GENRES:
+        clean_genre = "mixed"
+
+    engines = {g: get_engine_for_stream(stream.id, genre=g, db=db) for g in AVAILABLE_GENRES}
+    primary_engine = engines[clean_genre]
 
     for i, msg in enumerate(messages):
-        # Simulate timing (if speed > 0)
         offset = msg.get("offset_seconds", i)
         if speed_multiplier > 0:
             delay = (offset - last_offset) / speed_multiplier
@@ -106,8 +96,26 @@ async def replay_stream(
                 participant_name=msg["user"],
             )
 
-            result = engine.ingest(norm_msg)
-            outcome_key = result.outcome.value
+            primary_result = primary_engine.ingest(norm_msg)
+            for g, eng in engines.items():
+                if eng != primary_engine:
+                    eng.ingest(norm_msg)
+
+            msg_row = MessageModel(
+                stream_id=stream.id,
+                platform="demo",
+                platform_message_id=norm_msg.message_id,
+                participant_id=norm_msg.participant_id,
+                participant_name=norm_msg.participant_name,
+                text_original=norm_msg.text,
+                text_cleaned=None,
+                is_valid=True,
+                signal_id=None,
+                similarity_score=primary_result.similarity_score,
+                timestamp=norm_msg.timestamp,
+            )
+            db.add(msg_row)
+            outcome_key = primary_result.outcome.value
             outcomes[outcome_key] = outcomes.get(outcome_key, 0) + 1
             processed += 1
 
@@ -116,11 +124,15 @@ async def replay_stream(
             outcomes["errors"] += 1
             continue
 
-    # Get ranked signals + persist
     try:
-        ranked = engine.get_ranked_signals()
-    except Exception as e:
-        print(f"[RANK ERROR] {e}")
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    # Persist signals from primary engine
+    try:
+        ranked = primary_engine.get_ranked_signals()
+    except Exception:
         ranked = []
 
     persisted = 0
@@ -128,18 +140,25 @@ async def replay_stream(
         try:
             _safe_persist_signal(db, stream.id, sig)
             persisted += 1
-        except Exception as e:
-            print(f"[PERSIST WARN] {e}")
+        except Exception:
             db.rollback()
 
-    # Update stream stats
+    try:
+        for sig, _ in ranked:
+            db.query(MessageModel).filter(
+                MessageModel.stream_id == stream.id,
+                MessageModel.platform_message_id.in_(sig.message_ids)
+            ).update({MessageModel.signal_id: sig.id}, synchronize_session=False)
+        db.commit()
+    except Exception:
+        db.rollback()
+
     try:
         stream.total_messages = processed
         stream.total_signals = len(ranked)
         stream.unique_participants = len(set(m["user"] for m in messages))
         db.commit()
-    except Exception as e:
-        print(f"[STREAM UPDATE WARN] {e}")
+    except Exception:
         db.rollback()
 
     return {
@@ -150,30 +169,3 @@ async def replay_stream(
         "signals_persisted": persisted,
         "unique_users": len(set(m["user"] for m in messages)),
     }
-
-
-async def stream_demo_iterator(
-    dataset_name: str = DEFAULT_DATASET,
-    speed_multiplier: float = 10.0,
-) -> AsyncIterator[dict]:
-    """
-    Async generator that yields messages one-by-one with timing.
-    Used for WebSocket streaming (later).
-    """
-    messages = load_demo_messages(dataset_name)
-    last_offset = 0
-
-    for i, msg in enumerate(messages):
-        offset = msg.get("offset_seconds", i)
-        if speed_multiplier > 0:
-            delay = (offset - last_offset) / speed_multiplier
-            if delay > 0:
-                await asyncio.sleep(delay)
-        last_offset = offset
-
-        yield {
-            "index": i,
-            "user": msg["user"],
-            "text": msg["text"],
-            "offset_seconds": offset,
-        }

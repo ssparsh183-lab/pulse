@@ -1,13 +1,18 @@
 """PULSE — Signal Model (Persisted)"""
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional , TYPE_CHECKING
 import uuid
 
 from sqlalchemy import String, DateTime, ForeignKey, Integer, Float, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
+
+if TYPE_CHECKING:
+    from app.models.message import Message  # <--- 2. Added
+    from app.models.signal_membership import SignalMembership  # <--- 3. Added
+    from app.models.stream import Stream  # <--- 4. Added
 
 
 def generate_uuid() -> str:

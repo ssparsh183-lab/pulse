@@ -1,10 +1,12 @@
+// frontend/app/dashboard/stream/demo/page.tsx
+
 "use client";
 
 import { PulseScoreGauge } from "@/components/analytics/pulse-score-gauge";
 import { AudienceDNAPanel } from "@/components/analytics/audience-dna-panel";
 import { MonetizationTip } from "@/components/analytics/monetization-tip";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
@@ -15,13 +17,13 @@ import { CategoryFilter } from "@/components/dashboard/category-filter";
 import { SignalCard } from "@/components/signals/signal-card";
 import { Loader } from "@/components/shared/loader";
 import { MultilingualInject } from "@/components/dashboard/multilingual-inject";
+import { ContextSlider } from "@/components/dashboard/context-slider";
 import {
   ArrowLeft,
   Radio,
   MessageSquare,
   Sparkles,
   CheckCircle2,
-  PlayCircle,
 } from "lucide-react";
 
 interface ChatMsg {
@@ -34,11 +36,12 @@ interface ChatMsg {
 
 export default function DemoStreamPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  
   const { token, isHydrated } = useAuthStore();
   const ranOnce = useRef(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
-  const [booting, setBooting] = useState(true);
   const [demoLoading, setDemoLoading] = useState(false);
   const [activeStream, setActiveStream] = useState<Stream | null>(null);
   const [signals, setSignals] = useState<Signal[]>([]);
@@ -48,83 +51,140 @@ export default function DemoStreamPage() {
   const [pulseScore, setPulseScore] = useState<any>(null);
   const [audienceData, setAudienceData] = useState<any>(null);
 
+  // Active Context-Aware Sliding Genre State (Mixed by default!)
+  const [activeGenre, setActiveGenre] = useState<string>("mixed");
+
+  // Decoupled stats bar states to prevent rendering loop!
+  const [dynamicMsgCount, setDynamicMsgCount] = useState(0);
+  const [dynamicUserCount, setDynamicUserCount] = useState(0);
+
+  // 🔥 URL Params for Context-Aware Navigation
+  const fromSource = searchParams.get("from");
+  const fromHandle = searchParams.get("handle");
+
+  // Context-Aware Back Navigation
+  const handleBack = () => {
+    if (fromSource === "twitter") {
+      router.push(`/dashboard/twitter/channel?handle=${encodeURIComponent(fromHandle || "@Uppolice")}`);
+    } else {
+      router.push("/dashboard");
+    }
+  };
+
+  const backButtonLabel = fromSource === "twitter"
+    ? `Back to ${fromHandle || "@Uppolice"} Station`
+    : "Back to Workspace";
+
   useEffect(() => {
     if (isHydrated && !token) router.replace("/");
   }, [isHydrated, token, router]);
 
-  const handleRunDemo = useCallback(async () => {
+  // Master Demo Replay Trigger
+  const handleRunDemoWithGenre = useCallback(async (chosenGenre: string) => {
     setDemoLoading(true);
     try {
-      toast.info("Replaying demo through PULSE engine...");
+      toast.info(`Configuring PULSE engine for context: ${chosenGenre.toUpperCase()}...`);
 
-      try {
-        const preview = await api.previewDemo("demo_stream.jsonl", 50);
-        const feed: ChatMsg[] = (preview.preview || []).map(
-          (m: any, i: number) => ({
-            id: `demo_${i}`,
-            user: m.user || `user_${i}`,
-            text: m.text || "",
-            time: `${m.offset_seconds ?? i}s`,
-          })
-        );
-        setChatFeed(feed);
-      } catch {}
+      // 1. Start demo on backend with the explicit chosen genre!
+      const demoResult = await api.startDemo("demo_stream.jsonl", 0, chosenGenre);
+      
+      // 2. Fetch full analysis to initialize the states
+      const res = await api.getFullAnalysis(demoResult.stream_id, chosenGenre);
+      
+      // 3. Save static metadata ONCE to prevent update-re-render cycle!
+      setActiveStream({
+        id: res.stream.id,
+        source: res.stream.source,
+        external_id: res.stream.external_id,
+        title: res.stream.title,
+        status: res.stream.status,
+        total_messages: res.stream.total_messages,
+        total_signals: res.stream.total_signals,
+        unique_participants: res.stream.unique_participants,
+        genre: chosenGenre,
+        created_at: res.stream.created_at,
+      });
 
-      const demoResult = await api.startDemo("demo_stream.jsonl", 0);
-      const streamDetail = await api.getStream(demoResult.stream_id);
-      setActiveStream(streamDetail);
-
-      const sigs = await api.getStreamSignals(demoResult.stream_id);
-      setSignals(sigs);
-
-      try {
-        const [score, dna] = await Promise.all([
-          api.getPulseScore(demoResult.stream_id),
-          api.getAudienceDNA(demoResult.stream_id),
-        ]);
-        setPulseScore(score);
-        setAudienceData(dna);
-      } catch (e) {
-        console.error("Analytics fetch failed", e);
+      setSignals(res.signals);
+      setDynamicMsgCount(res.stream.total_messages);
+      setDynamicUserCount(res.stream.unique_participants);
+      setActiveGenre(chosenGenre);
+      
+      if (res.score) setPulseScore(res.score);
+      if (res.audience) setAudienceData(res.audience);
+      if (res.messages && res.messages.length > 0) {
+        setChatFeed(res.messages);
       }
 
-      toast.success(
-        `${demoResult.messages_replayed} msgs → ${demoResult.final_signals} signals 🔥`
-      );
+      toast.success(`Demo Sandbox Initialized in ${chosenGenre.toUpperCase()}! 🚀`);
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Demo failed");
     } finally {
       setDemoLoading(false);
-      setBooting(false);
     }
   }, []);
 
+  // 🔥 AUTO-RUN ON MOUNT: Run mixed baseline demo immediately when landing on the page
   useEffect(() => {
     if (!token || ranOnce.current) return;
     ranOnce.current = true;
-    handleRunDemo();
-  }, [token, handleRunDemo]);
+    handleRunDemoWithGenre("mixed");
+  }, [token, handleRunDemoWithGenre]);
 
-  const fetchSignals = useCallback(async () => {
-    if (!activeStream) return;
+  // 🔥 DECOUPLED DYNAMIC UPDATER (Does not depend on the activeStream object!)
+  const fetchSignals = useCallback(async (streamId: string, genreToFetch: string) => {
     try {
-      const [sigs, score, dna] = await Promise.all([
-        api.getStreamSignals(activeStream.id, selectedCategory || undefined),
-        api.getPulseScore(activeStream.id).catch(() => null),
-        api.getAudienceDNA(activeStream.id).catch(() => null),
-      ]);
-      setSignals(sigs);
-      if (score) setPulseScore(score);
-      if (dna) setAudienceData(dna);
+      const res = await api.getFullAnalysis(streamId, genreToFetch);
+      
+      setSignals(res.signals);
+      if (res.score) setPulseScore(res.score);
+      if (res.audience) setAudienceData(res.audience);
+      
+      setDynamicMsgCount(res.stream.total_messages);
+      setDynamicUserCount(res.stream.unique_participants);
+      
+      if (res.messages) {
+        setChatFeed(res.messages);
+      }
     } catch (e) {
-      console.error(e);
+      console.error("[PULSE Polling Error]", e);
     }
-  }, [activeStream, selectedCategory]);
+  }, []);
 
+  // Polling hook tied STRICTLY to primitive values (streamId, activeGenre)
   useEffect(() => {
-    if (activeStream) fetchSignals();
-  }, [activeStream, selectedCategory, fetchSignals]);
+    if (!activeStream?.id) return;
+
+    // Trigger update immediately
+    fetchSignals(activeStream.id, activeGenre);
+
+    const interval = setInterval(() => {
+      fetchSignals(activeStream.id, activeGenre);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [activeStream?.id, activeGenre, selectedCategory, fetchSignals]);
+
+  // Handle Dynamic Genre Slider Changes smoothly without re-rendering loop
+  const handleGenreChange = async (newGenre: string) => {
+    if (!activeStream?.id) return;
+    
+    setDemoLoading(true);
+    setActiveGenre(newGenre);
+    try {
+      toast.info(`Recalibrating context space to: ${newGenre.toUpperCase()}...`);
+      
+      // 🔥 FAST SWITCH: Fetch dynamically morphed data directly without starting a new demo session!
+      await fetchSignals(activeStream.id, newGenre);
+
+      toast.success(`Context space calibrated to: ${newGenre.toUpperCase()}! 🎯`);
+    } catch (e: any) {
+      toast.error(e?.message || "Recalibration failed");
+    } finally {
+      setDemoLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (chatScrollRef.current) {
@@ -137,7 +197,7 @@ export default function DemoStreamPage() {
     try {
       await api.resolveSignal(activeStream.id, sigId);
       toast.success("Resolved ✓");
-      fetchSignals();
+      fetchSignals(activeStream.id, activeGenre);
     } catch {
       toast.error("Resolve failed");
     }
@@ -148,35 +208,24 @@ export default function DemoStreamPage() {
     try {
       await api.dismissSignal(activeStream.id, sigId);
       toast.info("Dismissed");
-      fetchSignals();
+      fetchSignals(activeStream.id, activeGenre);
     } catch {
       toast.error("Dismiss failed");
     }
   };
 
-  const handleInjected = async (text: string) => {
-    setChatFeed((prev) => [
-      ...prev,
-      {
-        id: `inj_${Date.now()}`,
-        user: "judge_demo",
-        text: text,
-        time: "Live",
-        isNew: true,
-      },
-    ]);
+  const handleInjected = async () => {
     if (activeStream) {
-      fetchSignals();
-      setActiveStream((prev) =>
-        prev ? { ...prev, total_messages: prev.total_messages + 1 } : prev
-      );
+      setTimeout(() => {
+        fetchSignals(activeStream.id, activeGenre);
+      }, 500);
     }
   };
 
-  if (!isHydrated || booting) {
+  if (!isHydrated) {
     return (
       <main className="min-h-screen gradient-bg flex items-center justify-center">
-        <Loader label="Running demo through PULSE engine..." />
+        <Loader label="Opening Demo Command Center..." />
       </main>
     );
   }
@@ -187,39 +236,61 @@ export default function DemoStreamPage() {
       categoryCounts[s.category] = (categoryCounts[s.category] || 0) + 1;
   });
 
+  const filteredSignals = selectedCategory
+    ? signals.filter((s) => s.category === selectedCategory)
+    : signals;
+
   return (
-    <main className="min-h-screen gradient-bg pb-12">
+    <main className="min-h-screen gradient-bg pb-12 relative z-10">
+      {/* Dynamic reset button without modal friction */}
       <Header
-        channelTitle="Demo Stream"
+        channelTitle="PULSE Command Center"
         isLive={!!activeStream}
-        onRunDemo={handleRunDemo}
+        onRunDemo={() => handleRunDemoWithGenre("mixed")}
         demoLoading={demoLoading}
       />
 
-      {/* 💰 MONETIZATION POPUP (works in demo since it's treated as live) */}
       <MonetizationTip pulseScore={pulseScore} isLive={!!activeStream} />
 
       <div className="max-w-[1600px] mx-auto px-6 pt-6">
+        
+        {/* Isolated Context Slider */}
+        <ContextSlider 
+          activeGenre={activeGenre} 
+          onGenreChange={handleGenreChange} 
+          disabled={demoLoading} 
+        />
+
         <div className="flex items-center justify-between mb-4">
+          {/* 🔥 Dynamic Context-Aware Back Button */}
           <button
-            onClick={() => router.push("/dashboard")}
-            className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200 transition"
+            onClick={handleBack}
+            className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200 transition font-mono"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Workspace
+            {backButtonLabel}
           </button>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold">
-            <Radio className="w-3.5 h-3.5" />
-            DEMO REPLAY
+          
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold">
+              <Radio className="w-3.5 h-3.5 animate-pulse" />
+              DEMO REPLAY
+            </div>
+            {activeStream && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-[var(--brand-light)] text-xs font-bold uppercase font-mono tracking-wider shadow-[0_0_15px_rgba(168,85,247,0.15)] animate-bounce">
+                <Sparkles className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
+                {activeGenre === "coding" ? "CODING/EDUCATIONAL" : (activeGenre === "gaming" ? "GAMING/TECH" : "MIXED/GENERAL")} CONTEXT
+              </div>
+            )}
           </div>
         </div>
 
         {activeStream && (
           <div className="mt-2 mb-6">
             <StatsBar
-              totalMessages={activeStream.total_messages}
+              totalMessages={dynamicMsgCount}
               activeSignals={signals.length}
-              uniqueUsers={activeStream.unique_participants}
+              uniqueUsers={dynamicUserCount}
             />
           </div>
         )}
@@ -332,12 +403,13 @@ export default function DemoStreamPage() {
               streamId={activeStream?.id || null}
               onInjected={handleInjected}
               disabled={demoLoading || !activeStream}
+              genre={activeGenre}
             />
           </div>
 
           <div className="lg:col-span-8 flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-zinc-100">PULSE Signals</h2>
+              <h2 className="text-lg font-bold text-zinc-100 font-sans">PULSE Signals</h2>
               {activeStream && (
                 <span className="text-xs text-zinc-500 font-mono truncate max-w-[200px]">
                   {activeStream.external_id}
@@ -351,21 +423,14 @@ export default function DemoStreamPage() {
               counts={categoryCounts}
             />
 
-            {signals.length === 0 ? (
-              <div className="rounded-2xl border border-zinc-800 p-12 text-center">
-                <CheckCircle2 className="w-8 h-8 text-purple-400 mx-auto mb-3" />
-                <p className="text-zinc-400 text-sm mb-4">No signals yet</p>
-                <button
-                  onClick={handleRunDemo}
-                  disabled={demoLoading}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-semibold"
-                >
-                  <PlayCircle className="w-4 h-4" /> Run Demo Again
-                </button>
+            {filteredSignals.length === 0 ? (
+              <div className="rounded-2xl border border-zinc-800 p-12 text-center bg-zinc-900/10">
+                <CheckCircle2 className="w-8 h-8 text-purple-400 mx-auto mb-3 animate-pulse" />
+                <p className="text-zinc-400 text-sm mb-4">Awaiting audience consensus...</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {signals.map((sig) => (
+                {filteredSignals.map((sig) => (
                   <SignalCard
                     key={sig.id}
                     signal={sig}

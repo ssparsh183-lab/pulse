@@ -1,7 +1,7 @@
-"""PULSE — Stream Model"""
+# backend/app/models/stream.py
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional , TYPE_CHECKING
 from enum import Enum as PyEnum
 import uuid
 
@@ -9,6 +9,11 @@ from sqlalchemy import String, DateTime, ForeignKey, Enum, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
+
+if TYPE_CHECKING:
+    from app.models.user import User
+    from app.models.message import Message  # <--- Added Message for type safety!
+    from app.models.signal import Signal    # <--- Added Signal for type safety!
 
 
 def generate_uuid() -> str:
@@ -48,6 +53,9 @@ class Stream(Base):
     total_messages: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     total_signals: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     unique_participants: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    # 🔥 upgraded for SIH Context-Aware engine
+    genre: Mapped[Optional[str]] = mapped_column(String(100), default="general")
 
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

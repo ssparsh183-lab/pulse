@@ -1,63 +1,57 @@
 # ============================================
-# PULSE — Git Ignore
+# PULSE MONOREPO — MASTER GITIGNORE (SIH 2026)
 # ============================================
 
-# --- Python ---
-__pycache__/
+# --- 1. Heavy ML Model Caches (2GB+ Saved!) ---
+**/.model_cache/
+**/.cache/
+**/models_cache/
+**/.locks/
+**/*.bin
+**/*.safetensors
+**/*.onnx
+
+# --- 2. Python Virtual Environments & Caches ---
+**/venv/
+**/.venv/
+**/env/
+**/ENV/
+**/__pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
+*.pytest_cache/
 *.egg-info/
-.pytest_cache/
+dist/
+build/
 
-# --- Virtual Environment ---
-venv/
-env/
-.venv/
-ENV/
+# --- 3. Frontend & Node.js Artifacts ---
+**/node_modules/
+**/.next/
+**/out/
+**/.turbo/
+.pnp
+.pnp.js
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# --- Environment Variables ---
-.env
-.env.local
+# --- 4. Environment Variables & Secret Credentials ---
 *.env
+*.env.local
+*.env.*.local
+!.env.example
+client_secret*.json
+credentials.json
+token.json
+*.pem
+*.key
 
-# --- IDE ---
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# --- OS ---
+# --- 5. Operating System & IDE Garbage ---
 .DS_Store
 Thumbs.db
 desktop.ini
-
-# --- Database ---
-*.db
-*.sqlite
-*.sqlite3
-
-# --- Logs ---
-*.log
-logs/
-
-# --- Secrets / Tokens ---
-*.pem
-*.key
-credentials.json
-token.json
-client_secret*.json
-
-# --- Alembic ---
-# Keep migration versions, ignore local temp
-alembic/versions/__pycache__/
-
-# --- Models cache (sentence-transformers download) ---
-.cache/
-models_cache/
-
-# --- Build ---
-dist/
-build/
-*.egg
+**/.vscode/
+**/.idea/
+*.swp
+*.swo

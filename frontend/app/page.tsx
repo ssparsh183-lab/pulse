@@ -1,8 +1,26 @@
+// frontend/app/page.tsx
+
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/store/auth";
 import { Hero } from "@/components/landing/hero";
 import { FeatureCards } from "@/components/landing/feature-cards";
 import Link from "next/link";
 
 export default function Home() {
+  const router = useRouter();
+  const token = useAuthStore((s) => s.token);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
+
+  useEffect(() => {
+    // 🔥 AUTO-REDIRECT: If already logged in, skip landing page and jump straight to Master Gateway!
+    if (isHydrated && token) {
+      router.replace("/dashboard");
+    }
+  }, [isHydrated, token, router]);
+
   return (
     <main className="min-h-screen gradient-bg overflow-hidden">
       {/* Nav */}

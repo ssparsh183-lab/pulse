@@ -1,9 +1,12 @@
+# backend/app/api/videos.py
+
 """
-PULSE — Past Video Analysis API (High Performance Batch Persistence)
+PULSE — Past Video Analysis API (High Performance Batch Persistence + Metadata Sync)
 """
 
+import re
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -25,9 +28,6 @@ router = APIRouter()
 
 
 def _safe_persist_signal(db: Session, stream_id: str, engine_signal) -> None:
-    """
-    High-performance batch persistence in 1 transaction instead of loop commits.
-    """
     try:
         existing = db.query(SignalModel).filter(SignalModel.id == engine_signal.id).first()
 
@@ -68,7 +68,6 @@ def _safe_persist_signal(db: Session, stream_id: str, engine_signal) -> None:
             )
             db.add(row)
 
-        # Batch check existing memberships in 1 query
         existing_members = set(
             p[0] for p in db.query(SignalMembership.participant_id)
             .filter(SignalMembership.signal_id == engine_signal.id)
@@ -126,7 +125,7 @@ async def analyze_video(
         db.commit()
         db.refresh(stream)
     else:
-        # 🔥 FIX: Wipe old analysis data and clear engine cache to prevent duplicate signal accumulation
+        # Wipe old data for clean re-sync
         db.query(SignalMembership).filter(SignalMembership.signal_id.in_(
             db.query(SignalModel.id).filter(SignalModel.stream_id == stream.id)
         )).delete(synchronize_session=False)
@@ -134,11 +133,36 @@ async def analyze_video(
         db.query(SignalModel).filter(SignalModel.stream_id == stream.id).delete(synchronize_session=False)
         db.query(MessageModel).filter(MessageModel.stream_id == stream.id).delete(synchronize_session=False)
         db.commit()
+        db.expire_all()
         clear_engine_cache(stream.id)
 
     stream_id = stream.id
-
     yt = YouTubeService(db, current_user)
+
+    # Fetch real video metadata
+    try:
+        video_data = await yt._api_get("videos", {"part": "contentDetails,snippet", "id": video_id})
+        items = video_data.get("items", [])
+        if items:
+            duration_str = items[0]["contentDetails"].get("duration", "PT0M")
+            title = items[0]["snippet"].get("title")
+            thumbnail = items[0]["snippet"].get("thumbnails", {}).get("high", {}).get("url")
+            
+            match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration_str)
+            if match:
+                h = int(match.group(1) or 0)
+                m = int(match.group(2) or 0)
+                s = int(match.group(3) or 0)
+                duration_sec = h * 3600 + m * 60 + s
+                
+                stream.started_at = datetime.utcnow()
+                stream.ended_at = stream.started_at + timedelta(seconds=duration_sec)
+                stream.title = title
+                stream.thumbnail_url = thumbnail
+                db.commit()
+    except Exception as metadata_err:
+        print(f"[METADATA WARN] Failed to fetch video details: {metadata_err}")
+
     try:
         comments = await yt.fetch_video_comments(video_id, max_pages=max_pages)
     except Exception as e:
@@ -147,14 +171,24 @@ async def analyze_video(
         raise HTTPException(status_code=400, detail=f"YouTube fetch failed: {str(e)}")
 
     if not comments:
+        stream.total_messages = 0
+        stream.unique_participants = 1
+        stream.total_signals = 0
+        db.commit()
         return {
             "stream_id": stream_id,
+            "video_id": video_id,
             "comments_fetched": 0,
-            "message": "No comments found (or comments disabled)",
+            "comments_processed": 0,
+            "outcomes": outcomes,
+            "signals_created": 0,
+            "signals_persisted": 0,
+            "unique_commenters": 0,
         }
 
-    engine = get_engine_for_stream(stream_id)
+    engine = get_engine_for_stream(stream_id, genre="mixed", db=db)
 
+    # PHASE 1: Ingest into Engine and save to DB with signal_id = None (ZERO ForeignKey Risk!)
     for c in comments:
         try:
             published_str = c.get("published_at", "")
@@ -178,7 +212,7 @@ async def analyze_video(
             norm_msg = NormalizedMessage(
                 platform="youtube",
                 stream_id=stream_id,
-                message_id=c.get("comment_id", f"unknown_{processed}"),
+                message_id=c.get("comment_id", f"yt_msg_{processed}"),
                 participant_id=author_id,
                 text=text,
                 timestamp=published_at,
@@ -187,6 +221,23 @@ async def analyze_video(
 
             result = engine.ingest(norm_msg)
 
+            # 🔥 SAFE INSERT: signal_id = None ensures no FK violation rollback!
+            msg_row = MessageModel(
+                stream_id=stream_id,
+                platform="youtube",
+                platform_message_id=norm_msg.message_id,
+                participant_id=norm_msg.participant_id,
+                participant_name=norm_msg.participant_name,
+                text_original=norm_msg.text,
+                text_cleaned=None,
+                is_valid=result.outcome != "ignored_empty",
+                invalid_reason=None if result.outcome != "ignored_empty" else "preprocess_dropped",
+                signal_id=None,
+                similarity_score=result.similarity_score,
+                timestamp=norm_msg.timestamp,
+            )
+            db.add(msg_row)
+
             outcome_key = result.outcome.value
             outcomes[outcome_key] = outcomes.get(outcome_key, 0) + 1
             unique_ids_seen.add(author_id)
@@ -194,16 +245,23 @@ async def analyze_video(
 
         except Exception as e:
             print(f"[ENGINE ERROR] {e}")
-            traceback.print_exc()
             outcomes["errors"] += 1
             continue
 
+    # Commit all raw messages first to guarantee they are never lost!
+    try:
+        db.commit()
+    except Exception as e:
+        print(f"[DB MESSAGES COMMIT ERR] {e}")
+        db.rollback()
+
+    # PHASE 2: Persist Signals safely
     try:
         ranked = engine.get_ranked_signals()
         total_signals = len(ranked)
     except Exception as e:
         print(f"[RANK ERROR] {e}")
-        traceback.print_exc()
+        ranked = []
 
     for sig, _ranking in ranked:
         try:
@@ -213,12 +271,24 @@ async def analyze_video(
             print(f"[PERSIST WARN] Signal {sig.id}: {persist_err}")
             db.rollback()
 
+    # Link messages to signals cleanly
+    try:
+        for sig, _ in ranked:
+            db.query(MessageModel).filter(
+                MessageModel.stream_id == stream_id,
+                MessageModel.platform_message_id.in_(sig.message_ids)
+            ).update({MessageModel.signal_id: sig.id}, synchronize_session=False)
+        db.commit()
+    except Exception:
+        pass
+
+    # Update final stream metadata
     try:
         stream.total_messages = processed
         stream.status = StreamStatus.ARCHIVED
         stream.ended_at = datetime.utcnow()
         stream.total_signals = total_signals
-        stream.unique_participants = len(unique_ids_seen)
+        stream.unique_participants = max(len(unique_ids_seen), 1)
         db.commit()
     except Exception as e:
         print(f"[STREAM UPDATE WARN] {e}")
@@ -244,7 +314,6 @@ def get_video_signals(
     db: Session = Depends(get_db),
 ):
     stream = _get_video_stream(db, current_user, video_id)
-
     engine = get_engine_for_stream(stream.id)
     ranked = engine.get_ranked_signals(category=category)
 
@@ -274,7 +343,6 @@ def get_video_summary(
     db: Session = Depends(get_db),
 ):
     stream = _get_video_stream(db, current_user, video_id)
-
     engine = get_engine_for_stream(stream.id)
     all_signals = engine.get_all_signals(include_noise=False)
 

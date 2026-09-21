@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 360" width="100%" height="100%">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#09090b" />
+      <stop offset="100%" stop-color="#18181b" />
+    </linearGradient>
+    <linearGradient id="beam" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="transparent" />
+      <stop offset="50%" stop-color="#ef4444" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="transparent" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background Card -->
+  <rect width="600" height="360" rx="16" fill="url(#grad)" stroke="#27272a" stroke-width="2"/>
+
+  <!-- Top Laser Beam Indicator -->
+  <rect x="0" y="0" width="600" height="4" fill="url(#beam)"/>
+
+  <!-- Surveillance Header Badge -->
+  <rect x="24" y="24" width="160" height="28" rx="6" fill="#ef4444" fill-opacity="0.15" stroke="#ef4444" stroke-width="1"/>
+  <text x="36" y="42" fill="#ef4444" font-family="monospace" font-size="11" font-weight="bold" letter-spacing="1">● FATAL INCIDENT</text>
+
+  <text x="576" y="42" text-anchor="end" fill="#71717a" font-family="monospace" font-size="11">PULSE // OSINT EVIDENCE</text>
+
+  <!-- Central Evidence Illustration & Icons -->
+  <circle cx="300" cy="150" r="60" fill="#ef4444" fill-opacity="0.08" stroke="#ef4444" stroke-opacity="0.2" stroke-width="2"/>
+  <text x="300" y="165" text-anchor="middle" font-size="44">🚨 🚗💨 ⚠️</text>
+
+  <!-- Incident Title & Subtitle -->
+  <text x="300" y="245" text-anchor="middle" fill="#f4f4f5" font-family="system-ui, sans-serif" font-size="17" font-weight="bold">OVERTURNED SUV EVIDENCE #02</text>
+  <text x="300" y="270" text-anchor="middle" fill="#a1a1aa" font-family="system-ui, sans-serif" font-size="13">Near Fortis Hospital Roundabout</text>
+
+  <!-- Ground-Truth OCR Extraction Bar -->
+  <rect x="24" y="300" width="552" height="36" rx="8" fill="#000000" fill-opacity="0.6" stroke="#27272a" stroke-width="1"/>
+  <text x="40" y="323" fill="#38bdf8" font-family="monospace" font-size="11" font-weight="600">🔍 OCR: FORTIS MEDICAL CORRIDOR NOIDA</text>
+</svg>

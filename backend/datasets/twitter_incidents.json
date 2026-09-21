@@ -1,0 +1,285 @@
+[
+  {
+    "id": "INC_001",
+    "title": "Multi-Vehicle Collision at NH-24, Sector 62",
+    "location": "Sector 62 Chauraha, Noida",
+    "severity": "CRITICAL",
+    "credibility": 94,
+    "velocity": "+9/min",
+    "category": "accident",
+    "status": "active",
+    "vision": {
+      "same_incident": true,
+      "confidence": 0.94,
+      "evidence": "Matching NH-24 milestone OCR + overturned white SUV visual corroboration"
+    },
+    "tweets": [
+      {
+        "id": "tw_101",
+        "author": "@rahul_sharma99",
+        "author_name": "Rahul Sharma",
+        "text": "@Uppolice bohot bura accident ho gaya NH-24 Sector 62 chauraha pe! 3 gaadiyan takrayi hain, highway pura jam hai please send PCR!",
+        "photo": "/demo_photos/accident_1.svg",
+        "has_media": true,
+        "media_type": "photo",
+        "appears_at": 0,
+        "addressed": false,
+        "timestamp": "14:30:10"
+      },
+      {
+        "id": "tw_102",
+        "author": "@priya_noida",
+        "author_name": "Priya Verma",
+        "text": "@Uppolice Major crash near Fortis hospital Sector 62 round about. White Creta flipped upside down. Road completely blocked!",
+        "photo": "/demo_photos/accident_2.svg",
+        "has_media": true,
+        "media_type": "photo",
+        "appears_at": 2,
+        "addressed": false,
+        "timestamp": "14:30:12"
+      },
+      {
+        "id": "tw_103",
+        "author": "@amit_commuter",
+        "author_name": "Amit Kumar",
+        "text": "@Uppolice sec 62 chauraha blocked completely, accident scene looks fatal, ambulance aur traffic police jaldi bhejo",
+        "photo": null,
+        "has_media": false,
+        "media_type": null,
+        "appears_at": 4,
+        "addressed": false,
+        "timestamp": "14:30:14"
+      },
+      {
+        "id": "tw_104",
+        "author": "@vikas_daily",
+        "author_name": "Vikas Yadav",
+        "text": "Bhaiya NH24 sector 62 pe bura haal hai, 3 cars crushed together, live video attached @Uppolice @UP112",
+        "photo": "/demo_photos/accident_3.svg",
+        "has_media": true,
+        "media_type": "video",
+        "appears_at": 6,
+        "addressed": false,
+        "timestamp": "14:30:16"
+      }
+    ]
+  },
+  {
+    "id": "INC_002",
+    "title": "Industrial Chemical Leak & Fire Incident",
+    "location": "Site-4 Industrial Area, Greater Noida",
+    "severity": "CRITICAL",
+    "credibility": 91,
+    "velocity": "+7/min",
+    "category": "fire_hazard",
+    "status": "active",
+    "vision": {
+      "same_incident": true,
+      "confidence": 0.91,
+      "evidence": "Heavy chemical black smoke plumes + factory gate signboard visual match"
+    },
+    "tweets": [
+      {
+        "id": "tw_201",
+        "author": "@indust_worker",
+        "author_name": "Suresh Gupta",
+        "text": "@Uppolice Site 4 factory mein aag lag gayi hai, chemical tank blast hua hai, black smoke har taraf hai!",
+        "photo": "/demo_photos/fire_1.svg",
+        "has_media": true,
+        "media_type": "photo",
+        "appears_at": 8,
+        "addressed": false,
+        "timestamp": "14:30:18"
+      },
+      {
+        "id": "tw_202",
+        "author": "@gr_noida_news",
+        "author_name": "Greater Noida Watch",
+        "text": "Massive fire reported at Site-4 industrial unit. Fire brigade needed immediately @Uppolice @dmgbnagar",
+        "photo": "/demo_photos/fire_2.svg",
+        "has_media": true,
+        "media_type": "photo",
+        "appears_at": 10,
+        "addressed": false,
+        "timestamp": "14:30:20"
+      },
+      {
+        "id": "tw_203",
+        "author": "@rohit_tech",
+        "author_name": "Rohit Bansal",
+        "text": "@Uppolice Toxic smell and heavy smoke near Site 4 round-about. Workers trapped inside, emergency!",
+        "photo": null,
+        "has_media": false,
+        "media_type": null,
+        "appears_at": 12,
+        "addressed": false,
+        "timestamp": "14:30:22"
+      }
+    ]
+  },
+  {
+    "id": "INC_003",
+    "title": "Coordinated Electricity Bill Phishing Campaign",
+    "location": "Statewide / Online Cyber Cell",
+    "severity": "HIGH",
+    "credibility": 88,
+    "velocity": "+14/min",
+    "category": "cyber_fraud",
+    "status": "active",
+    "vision": {
+      "same_incident": true,
+      "confidence": 0.89,
+      "evidence": "Identical fake APK link screenshot + UPPCL forged logo OCR detection"
+    },
+    "tweets": [
+      {
+        "id": "tw_301",
+        "author": "@sunil_kumar",
+        "author_name": "Sunil Kumar",
+        "text": "@Uppolice @Cyberdost SMS aa raha hai ki bijli cut ho jayegi agar APK install nahi kiya. Fake link circulating!",
+        "photo": "/demo_photos/cyber_1.svg",
+        "has_media": true,
+        "media_type": "photo",
+        "appears_at": 14,
+        "addressed": false,
+        "timestamp": "14:30:24"
+      },
+      {
+        "id": "tw_302",
+        "author": "@anita_sh",
+        "author_name": "Anita Sharma",
+        "text": "@Uppolice Warning! Frauds sending fake UPPCL electricity bill disconnect notices with malicious app links.",
+        "photo": "/demo_photos/cyber_2.svg",
+        "has_media": true,
+        "media_type": "photo",
+        "appears_at": 16,
+        "addressed": false,
+        "timestamp": "14:30:26"
+      }
+    ]
+  },
+  {
+    "id": "INC_004",
+    "title": "Underpass Waterlogging & Stranded Vehicles",
+    "location": "Sector 18 Underpass, Noida",
+    "severity": "MEDIUM",
+    "credibility": 85,
+    "velocity": "+5/min",
+    "category": "civic_issue",
+    "status": "active",
+    "vision": {
+      "same_incident": true,
+      "confidence": 0.88,
+      "evidence": "Water submerged car roofs in underpass corridor"
+    },
+    "tweets": [
+      {
+        "id": "tw_401",
+        "author": "@deepak_noida",
+        "author_name": "Deepak Singh",
+        "text": "@Uppolice Sector 18 underpass pura doob gaya hai, gaadiyan fass gayi hain paani mein. Traffic divert karein!",
+        "photo": "/demo_photos/water_1.svg",
+        "has_media": true,
+        "media_type": "photo",
+        "appears_at": 18,
+        "addressed": false,
+        "timestamp": "14:30:28"
+      },
+      {
+        "id": "tw_402",
+        "author": "@neha_commute",
+        "author_name": "Neha Joshi",
+        "text": "@Uppolice 3 feet water in Sec 18 underpass, cars stalled. Avoid this route guys!",
+        "photo": null,
+        "has_media": false,
+        "media_type": null,
+        "appears_at": 20,
+        "addressed": false,
+        "timestamp": "14:30:30"
+      }
+    ]
+  },
+  {
+    "id": "INC_005",
+    "title": "Coordinated Astroturfing / Political Bot Swarm",
+    "location": "Synthetic Narrative / Multiple IPs",
+    "severity": "LOW",
+    "credibility": 12,
+    "velocity": "+22/min",
+    "category": "bot_swarm",
+    "status": "suppressed",
+    "vision": {
+      "same_incident": true,
+      "confidence": 0.15,
+      "evidence": "Stock profile avatars, repeated copy-paste hash strings, no real incident metadata"
+    },
+    "tweets": [
+      {
+        "id": "tw_501",
+        "author": "@bot_account_981",
+        "author_name": "User981928",
+        "text": "Trend this now! System failure everywhere follow back fast #BoycottX @Uppolice",
+        "photo": null,
+        "has_media": false,
+        "media_type": null,
+        "appears_at": 22,
+        "addressed": false,
+        "timestamp": "14:30:32"
+      },
+      {
+        "id": "tw_502",
+        "author": "@bot_account_982",
+        "author_name": "User981929",
+        "text": "Trend this now! System failure everywhere follow back fast #BoycottX @Uppolice",
+        "photo": null,
+        "has_media": false,
+        "media_type": null,
+        "appears_at": 24,
+        "addressed": false,
+        "timestamp": "14:30:34"
+      }
+    ]
+  },
+  {
+    "id": "INC_006",
+    "title": "Ambiguous Road Dispute vs Hit-and-Run Claim",
+    "location": "Pari Chowk vs Sector 150 Corridor",
+    "severity": "MEDIUM",
+    "credibility": 61,
+    "velocity": "+3/min",
+    "category": "unverified_dispute",
+    "status": "review_required",
+    "is_edge_case": true,
+    "vision": {
+      "same_incident": false,
+      "confidence": 0.62,
+      "evidence": "DISPARITY DETECTED: Photo 1 shows a white sedan at daytime round-about, Photo 2 shows a bike crash at dusk on empty expressway. Locations 18km apart."
+    },
+    "tweets": [
+      {
+        "id": "tw_601",
+        "author": "@citizen_express",
+        "author_name": "Sameer Khan",
+        "text": "@Uppolice fight happened after car hit motorcycle near Pari Chowk Greater Noida. Traffic stopped.",
+        "photo": "/demo_photos/ambiguous_1.svg",
+        "has_media": true,
+        "media_type": "photo",
+        "appears_at": 26,
+        "addressed": false,
+        "timestamp": "14:30:36"
+      },
+      {
+        "id": "tw_602",
+        "author": "@motorist_noida",
+        "author_name": "Karan Malhotra",
+        "text": "@Uppolice bike hit by speeding truck on Sector 150 expressway link. Driver fled. Send help!",
+        "photo": "/demo_photos/ambiguous_2.svg",
+        "has_media": true,
+        "media_type": "photo",
+        "appears_at": 28,
+        "addressed": false,
+        "timestamp": "14:30:38"
+      }
+    ]
+  }
+]

@@ -1,7 +1,3 @@
-"""
-PULSE — Workspace API (Optimized Parallel Fetch with Auto-Sync)
-"""
-
 import asyncio
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,15 +19,17 @@ async def get_workspace(
 ):
     yt = YouTubeService(db, current_user)
 
-    channel = None
+    channels = []
     try:
-        channel = await yt.get_my_channel()
+        channels = await yt.get_my_channels()
     except Exception as e:
-        print(f"[WORKSPACE WARN] Channel fetch failed: {e}")
+        print(f"[WORKSPACE WARN] Channels fetch failed: {e}")
 
-    uploads_playlist_id = channel.get("uploads_playlist_id") if channel else None
+    # Default to the first channel for initial workspace state if available
+    primary_channel = channels[0] if channels else None
+    uploads_playlist_id = primary_channel.get("uploads_playlist_id") if primary_channel else None
 
-    # Parallel YouTube calls
+    # Parallel YouTube calls for active/upcoming/past videos of primary channel
     results = await asyncio.gather(
         yt.get_active_live_streams(),
         yt.get_upcoming_live_streams(),
@@ -43,9 +41,7 @@ async def get_workspace(
     upcoming_streams = results[1] if not isinstance(results[1], Exception) else []
     all_content = results[2] if not isinstance(results[2], Exception) else []
 
-    # 🔥 AUTO-SYNC WORKSPACE STATE:
-    # If we have streams marked "live" in DB but they are no longer active on YouTube,
-    # auto-archive them dynamically so their telemetry isn't lost!
+    # Auto-sync workspace state
     db_live_streams = db.query(StreamModel).filter(
         StreamModel.user_id == current_user.id,
         StreamModel.status == StreamStatus.LIVE,
@@ -55,7 +51,6 @@ async def get_workspace(
     active_yt_ids = {s["id"] for s in active_streams}
     for dbs in db_live_streams:
         if dbs.external_id not in active_yt_ids:
-            # Broadcast ended on YouTube! Force transition status to ended
             dbs.status = StreamStatus.ENDED
             dbs.ended_at = datetime.utcnow()
             db.commit()
@@ -70,7 +65,8 @@ async def get_workspace(
             "name": current_user.name,
             "picture_url": current_user.picture_url,
         },
-        "channel": channel,
+        "channel": primary_channel,     # Primary legacy support
+        "channels": channels,           # 🔥 MULTI-CHANNEL ARRAY SENT TO FRONTEND!
         "live_now": active_streams,
         "upcoming": upcoming_streams,
         "past_videos": pure_videos,

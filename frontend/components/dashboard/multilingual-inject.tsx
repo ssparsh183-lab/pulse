@@ -17,9 +17,10 @@ interface Props {
   streamId: string | null;
   onInjected?: (text: string) => void;
   disabled?: boolean;
+  genre?: string;
 }
 
-export function MultilingualInject({ streamId, onInjected, disabled }: Props) {
+export function MultilingualInject({ streamId, onInjected, disabled, genre }: Props) {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [lastResult, setLastResult] = useState<string | null>(null);
@@ -38,7 +39,7 @@ export function MultilingualInject({ streamId, onInjected, disabled }: Props) {
       const res = await api.injectMessage(streamId, {
         text: clean,
         participant_name: "judge_demo",
-      });
+      }, genre || "mixed");
 
       if (res.signal) {
         setLastResult(`Fused → “${res.signal.label}” (${res.outcome})`);

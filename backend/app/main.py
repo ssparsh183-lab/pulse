@@ -68,7 +68,7 @@ app.openapi = custom_openapi
 # CORS — allow frontend to connect
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:3000"],
+    allow_origins=["*"],  # Allows localhost & Vercel production domain both
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -122,3 +122,12 @@ app.include_router(demo_router.router, prefix="/api/demo", tags=["demo"])
 
 from app.api import websocket as ws_router
 app.include_router(ws_router.router, prefix="/ws", tags=["websocket"])
+
+from app.api import intel as intel_router
+app.include_router(intel_router.router, prefix="/api/intel", tags=["intel"])
+
+from app.api import telegram as telegram_router
+app.include_router(telegram_router.router, prefix="/api/telegram", tags=["telegram"])
+
+from app.api import twitter as twitter_router
+app.include_router(twitter_router.router, prefix="/api/twitter", tags=["twitter"])

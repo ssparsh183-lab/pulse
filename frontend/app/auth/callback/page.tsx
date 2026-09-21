@@ -41,7 +41,7 @@ function CallbackInner() {
 
     (async () => {
       try {
-        setStatus("Verifying credentials with Google & YouTube...");
+        setStatus("Verifying credentials with Google");
         const response = await api.googleCallback(code);
         const { access_token, user } = response;
 

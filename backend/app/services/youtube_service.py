@@ -80,7 +80,8 @@ class YouTubeService:
             response.raise_for_status()
             return response.json()
 
-    async def get_my_channel(self) -> dict:
+    async def get_my_channels(self) -> list[dict]:
+        """Fetch ALL channels owned/managed by the authenticated Google user."""
         conn = self._get_connection()
         try:
             data = await self._api_get("channels", {
@@ -90,46 +91,28 @@ class YouTubeService:
 
             items = data.get("items", [])
             if not items:
-                raise ValueError("No YouTube channel found for this user")
+                return []
 
-            channel = items[0]
-            snippet = channel["snippet"]
-            stats = channel.get("statistics", {})
-
-            result = {
-                "id": channel["id"],
-                "title": snippet.get("title"),
-                "description": snippet.get("description", ""),
-                "thumbnail_url": snippet.get("thumbnails", {}).get("high", {}).get("url"),
-                "custom_url": snippet.get("customUrl"),
-                "subscriber_count": int(stats.get("subscriberCount", 0)),
-                "video_count": int(stats.get("videoCount", 0)),
-                "view_count": int(stats.get("viewCount", 0)),
-                "uploads_playlist_id": channel.get("contentDetails", {}).get("relatedPlaylists", {}).get("uploads"),
-            }
-
-            conn.platform_user_id = channel["id"]
-            conn.platform_username = snippet.get("title")
-            self.db.commit()
-
-            return result
+            channels_list = []
+            for channel in items:
+                snippet = channel["snippet"]
+                stats = channel.get("statistics", {})
+                channels_list.append({
+                    "id": channel["id"],
+                    "title": snippet.get("title"),
+                    "description": snippet.get("description", ""),
+                    "thumbnail_url": snippet.get("thumbnails", {}).get("high", {}).get("url"),
+                    "custom_url": snippet.get("customUrl"),
+                    "subscriber_count": int(stats.get("subscriberCount", 0)),
+                    "video_count": int(stats.get("videoCount", 0)),
+                    "view_count": int(stats.get("viewCount", 0)),
+                    "uploads_playlist_id": channel.get("contentDetails", {}).get("relatedPlaylists", {}).get("uploads"),
+                })
+            return channels_list
         except Exception as e:
-            print(f"[YOUTUBE SERVICE WARN] get_my_channel API call failed: {e}")
-            # Fallback to connection row if API fails
-            if conn and conn.platform_user_id:
-                return {
-                    "id": conn.platform_user_id,
-                    "title": conn.platform_username or "Connected Channel",
-                    "description": "YouTube Channel",
-                    "thumbnail_url": self.user.picture_url,
-                    "custom_url": None,
-                    "subscriber_count": 0,
-                    "video_count": 0,
-                    "view_count": 0,
-                    "uploads_playlist_id": None,
-                }
-            raise
-
+            print(f"[YOUTUBE SERVICE WARN] get_my_channels failed: {e}")
+            return []
+        
     async def get_active_live_streams(self) -> list[dict]:
         try:
             data = await self._api_get("liveBroadcasts", {

@@ -50,7 +50,17 @@ export const useAuthStore = create<AuthState>()(
       // 🔥 FIX: Zustand persist ka standard callback jo batata hai ki storage load ho chuki hai
       onRehydrateStorage: () => (state) => {
         if (state) {
-          state.setHydrated(true); // Rehydration complete hone par hi true hoga
+          const raw = localStorage.getItem("pulse-auth");
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              if (parsed?.state?.token) {
+                state.token = parsed.state.token;
+                state.user = parsed.state.user || null;
+              }
+            } catch {}
+          }
+          state.setHydrated(true);
         }
       },
       
