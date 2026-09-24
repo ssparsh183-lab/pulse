@@ -1,5 +1,5 @@
 # backend/app/api/twitter.py
-
+import re
 import os
 import json
 import secrets
@@ -421,7 +421,8 @@ async def get_handle_feed(handle: str, db: Session = Depends(get_db)):
     # ============================================================
     profile = next((h for h in POLICE_HANDLES if h["handle"].lower() == clean_handle.lower()), POLICE_HANDLES[0])
     incidents = get_incidents_data()
-    active_incidents = [i for i in incidents if i.get("status") == "active"]
+    # Active includes both 'active' and 'review_required' (Total 5 pristine signals)
+    active_incidents = [i for i in incidents if i.get("status") in ["active", "review_required"]]
 
     return {
         "profile": {**profile, "is_real_account": False},
@@ -441,8 +442,8 @@ async def get_handle_feed(handle: str, db: Session = Depends(get_db)):
         },
         "official_posts": AGENCY_OFFICIAL_POSTS,
         "past_live_sessions": []
-            
     }
+
 
 
 @router.get("/handles/{handle}/tweets")
@@ -555,10 +556,14 @@ def address_incident(incident_id: str, body: AddressRequest):
 
 @router.post("/reset")
 def reset_demo_data():
-    global _session_incidents
+    global _session_incidents, _pending_custom_incidents, _custom_incident_counter
+    if not DATASET_PATH.exists():
+        return {"ok": False, "message": "Dataset not found"}
     with open(DATASET_PATH, "r", encoding="utf-8") as f:
         _session_incidents = json.load(f)
-    return {"ok": True, "message": "PULSE Twitter incidents state refreshed to pristine demo baseline."}
+    _pending_custom_incidents = {}
+    _custom_incident_counter = 100
+    return {"ok": True, "message": "PULSE Twitter incidents state refreshed to pristine 15 reports & 5 signals."}
 
 
 @router.get("/incidents/{incident_id}/report")

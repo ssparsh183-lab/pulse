@@ -175,6 +175,14 @@ function TwitterChannelContent() {
   const loadData = async () => {
     setLoading(true);
     try {
+      const cleanH = (handleParam || "").trim().toLowerCase();
+      const isDemo = cleanH === "@uppolice" || cleanH === "@up112" || cleanH === "@cybercrimeup" || !cleanH;
+
+      // 🔥 AUTO-RESET ON MOUNT / RELOAD: Always restore pristine 15 reports & 5 signals for demo drills!
+      if (isDemo) {
+        await api.resetTwitterDemo().catch(() => {});
+      }
+
       const [feed, incs, tweets] = await Promise.all([
         api.getTwitterHandleFeed(handleParam),
         api.getTwitterIncidents(undefined, handleParam),
@@ -195,6 +203,7 @@ function TwitterChannelContent() {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     loadData();
