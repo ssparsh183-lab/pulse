@@ -3,7 +3,7 @@
 import re
 
 HINGLISH_HINTS: dict[str, str] = {
-    # 🔴 AUDIO / VISUAL (All map directly to 'audio')
+    # 🔴 AUDIO / VISUAL
     "sound": "audio",
     "voice": "audio",
     "mic": "audio",
@@ -32,7 +32,7 @@ HINGLISH_HINTS: dict[str, str] = {
     "potato": "lag",
     "ded": "broken",
 
-    # 🟢 HYPE & POSITIVE PRAISE (Pure Universal Sentiment)
+    # 🟢 HYPE & POSITIVE PRAISE
     "op": "great awesome",
     "bawal": "great awesome",
     "gazab": "great awesome",
@@ -44,13 +44,13 @@ HINGLISH_HINTS: dict[str, str] = {
     "loved": "great awesome loved",
     "amazing": "great awesome",
 
-    # 🟡 INDIAN DOUBT SLANGS
+    # 🟡 INDIAN DOUBT & EXPLANATION SLANGS (Only actual doubt words!)
     "bouncer": "doubt confusion",
     "palle": "doubt confusion",
     "hawa": "doubt confusion",
     "ghanta": "doubt confusion",
-    "samajh": "doubt",
     "samjhao": "doubt explain",
+    "samjhaiye": "doubt explain",
     "batao": "doubt explain",
 
     # 🚫 TOXICITY
@@ -87,7 +87,7 @@ def inject_hints(text: str) -> str:
 
     lowered = text.lower()
 
-    # 🔥 SMART NEGATION CONTEXT (Doubt vs Engagement): Handles both "samajh nahi" AND "clear nahi"
+    # 🔥 SMART NEGATION CONTEXT (Doubt vs Engagement)
     if re.search(r'\b(samajh|clear)\b', lowered):
         if re.search(r'\b(nahi|nhi|ni|nai|nahin|no|not)\b', lowered):
             text += " doubt confusion not_clear"

@@ -407,5 +407,16 @@ export const api = {
       method: "POST",
       query: { duration },
     }),
+
+  injectTwitterReport: (data: {
+    text: string;
+    photo?: string | null;
+    handle?: string;
+    post_id?: string | null;
+  }) =>
+    fetchApi<any>("/api/twitter/inject", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };
 

@@ -878,3 +878,157 @@ def get_twitter_space_autopsy(
         db.refresh(stream)
 
     return {"stream_id": stream.id}
+
+
+# ============================================================
+# TWITTER REPORT INJECTION & THRESHOLD ENGINE
+# ============================================================
+
+class TwitterInjectRequest(BaseModel):
+    text: str
+    author: Optional[str] = "@citizen_live"
+    author_name: Optional[str] = "Citizen Reporter"
+    photo: Optional[str] = None
+    handle: Optional[str] = "@Uppolice"
+    post_id: Optional[str] = None
+
+# In-memory storage for custom emerging incidents awaiting threshold (2 replies)
+_pending_custom_incidents: Dict[str, dict] = {}
+_custom_incident_counter = 100
+
+@router.post("/inject")
+def inject_twitter_report(body: TwitterInjectRequest):
+    global _custom_incident_counter
+    text_lower = body.text.lower()
+    incidents = get_incidents_data()
+
+    # 1. Check match against existing established incidents
+    matched_inc = None
+
+    # Accident / NH-24 Match
+    if any(k in text_lower for k in ["nh-24", "nh24", "sec 62", "sector 62", "fortis", "accident", "crash", "collision", "creta", "gaadi"]):
+        matched_inc = next((i for i in incidents if i["id"] == "INC_001"), None)
+
+    # Fire / Hazmat Match
+    elif any(k in text_lower for k in ["site-4", "site 4", "chemical", "fire", "aag", "smoke", "plume", "factory", "blast"]):
+        matched_inc = next((i for i in incidents if i["id"] == "INC_002"), None)
+
+    # Cyber Phishing Match
+    elif any(k in text_lower for k in ["bijli", "apk", "uppcl", "sms", "scam", "link", "cyber", "phishing", "fraud", "bill"]):
+        matched_inc = next((i for i in incidents if i["id"] == "INC_003"), None)
+
+    # Waterlogging Match
+    elif any(k in text_lower for k in ["underpass", "water", "waterlogging", "doob", "paani", "sector 18", "sec 18"]):
+        matched_inc = next((i for i in incidents if i["id"] == "INC_004"), None)
+
+    # 🟢 CASE A: Matches Existing Incident ➔ Merge Immediately!
+    if matched_inc:
+        new_tweet_id = f"tw_inj_{int(datetime.utcnow().timestamp() * 1000)}"
+        new_tw = {
+            "id": new_tweet_id,
+            "author": body.author or "@citizen_live",
+            "author_name": body.author_name or "Citizen Reporter",
+            "text": body.text.strip(),
+            "photo": body.photo,
+            "has_media": bool(body.photo),
+            "media_type": "photo" if body.photo else None,
+            "appears_at": 0,
+            "addressed": False,
+            "timestamp": datetime.utcnow().strftime("%H:%M:%S")
+        }
+        matched_inc.setdefault("tweets", []).append(new_tw)
+        matched_inc["current_reports"] = len(matched_inc["tweets"])
+
+        return {
+            "ok": True,
+            "outcome": "merged_existing",
+            "threshold_reached": True,
+            "incident_id": matched_inc["id"],
+            "incident_title": matched_inc["title"],
+            "incident_severity": matched_inc["severity"],
+            "current_reports": matched_inc["current_reports"],
+            "tweet": new_tw,
+            "message": f"Report merged into '{matched_inc['title']}' ({matched_inc['current_reports']} contributing reports)!"
+        }
+
+    # 🟡 CASE B: Completely New Incident ➔ Apply 2-Replies Threshold!
+    # Extract landmark or topic key
+    words = [w for w in re.findall(r'\b\w+\b', text_lower) if len(w) > 3 and w not in ["this", "that", "there", "here", "help", "please", "police"]]
+    cluster_key = "_".join(words[:2]) if len(words) >= 2 else (words[0] if words else "custom_incident")
+
+    new_tweet_id = f"tw_inj_{int(datetime.utcnow().timestamp() * 1000)}"
+    new_tw = {
+        "id": new_tweet_id,
+        "author": body.author or "@citizen_live",
+        "author_name": body.author_name or "Citizen Reporter",
+        "text": body.text.strip(),
+        "photo": body.photo,
+        "has_media": bool(body.photo),
+        "media_type": "photo" if body.photo else None,
+        "appears_at": 0,
+        "addressed": False,
+        "timestamp": datetime.utcnow().strftime("%H:%M:%S")
+    }
+
+    # If first report for this new topic:
+    if cluster_key not in _pending_custom_incidents:
+        _pending_custom_incidents[cluster_key] = {
+            "key": cluster_key,
+            "reports_count": 1,
+            "tweets": [new_tw],
+            "first_seen": datetime.utcnow().strftime("%H:%M:%S"),
+            "sample_text": body.text.strip()
+        }
+        return {
+            "ok": True,
+            "outcome": "new_incident_pending",
+            "threshold_reached": False,
+            "current_reports": 1,
+            "threshold": 2,
+            "cluster_key": cluster_key,
+            "tweet": new_tw,
+            "message": "First report registered! Threshold is 2 replies to verify and form an active Incident Card."
+        }
+
+    # If second report arrives ➔ Threshold Reached! Spawn New Incident Card!
+    else:
+        pending = _pending_custom_incidents.pop(cluster_key)
+        pending["tweets"].append(new_tw)
+        _custom_incident_counter += 1
+        new_inc_id = f"INC_{_custom_incident_counter}"
+        
+        # Derive title and location from text
+        title = body.text.split(",")[0].split(".")[0].strip().title()
+        if len(title) > 40:
+            title = title[:37] + "..."
+
+        spawned_incident = {
+            "id": new_inc_id,
+            "title": f"Emerging Incident: {title}",
+            "location": "Reported Sector / Field Corridor",
+            "severity": "HIGH",
+            "credibility": 88,
+            "velocity": "+2/min",
+            "category": "emergency_alert",
+            "status": "active",
+            "current_reports": 2,
+            "vision": {
+                "same_incident": bool(body.photo),
+                "confidence": 0.89 if body.photo else 0.82,
+                "evidence": "Corroborated via multiple citizen dispatches + visual OCR match."
+            },
+            "tweets": pending["tweets"]
+        }
+        # Add to live incidents
+        incidents.insert(0, spawned_incident)
+
+        return {
+            "ok": True,
+            "outcome": "new_incident_activated",
+            "threshold_reached": True,
+            "current_reports": 2,
+            "threshold": 2,
+            "incident": spawned_incident,
+            "tweet": new_tw,
+            "message": f"Threshold reached (2/2)! Spawned new active Incident Card: '{spawned_incident['title']}' 🚨"
+        }

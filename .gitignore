@@ -6,3 +6,5 @@ node_modules/
 venv/ 
 .model_cache/ 
 client_secret_*.json 
+*.exe
+*.zip

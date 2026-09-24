@@ -14,7 +14,7 @@ import {
   Search, X, MessageSquare, Share2, Zap, FileText, Sparkles,
   Download, Clock, ArrowRight, CheckCircle2, AlertTriangle, Send, Check,
   Repeat, Heart, Bookmark, Activity, TrendingUp, BarChart3, PieChart as PieIcon,
-  Video, Play
+  Video, Play, Image as ImageIcon
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from "recharts";
 
@@ -64,6 +64,19 @@ function TwitterChannelContent() {
   const [dispatching, setDispatching] = useState(false);
 
   const [autopsyPost, setAutopsyPost] = useState<any>(null);
+
+  // 🔥 Tweet Injection States
+  const [injectText, setInjectText] = useState("");
+  const [injectPhoto, setInjectPhoto] = useState<string | null>(null);
+  const [injecting, setInjecting] = useState(false);
+
+  // Quick Preset Photos
+  const PRESET_EVIDENCE_PHOTOS = [
+    { label: "🚗 Crash Photo", url: "/demo_photos/accident_1.svg" },
+    { label: "🔥 Fire Photo", url: "/demo_photos/fire_1.svg" },
+    { label: "🌊 Flood Photo", url: "/demo_photos/water_1.svg" },
+    { label: "📱 Scam Notice", url: "/demo_photos/cyber_1.svg" },
+  ];
 
   const profile = feedData?.profile || {};
   const activeLive = feedData?.active_live_stream;
@@ -252,7 +265,72 @@ function TwitterChannelContent() {
     };
   }, [rawTweets, incidents, profile.is_real_account]);
 
-  // 🔥 1. LAUNCH LIVE SPACE COMMAND CENTER (Passes origin context!)
+  // 🔥 TWEET INJECTION HANDLERS
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setInjectPhoto(reader.result as string);
+        toast.success("Evidence photo attached! 📎");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleInjectTweet = async () => {
+    if (!injectText.trim()) {
+      toast.error("Please enter report text before injecting.");
+      return;
+    }
+
+    setInjecting(true);
+    try {
+      const res = await api.injectTwitterReport({
+        text: injectText.trim(),
+        photo: injectPhoto,
+        handle: handleParam,
+        post_id: selectedPostForTriage?.id,
+      });
+
+      const newTw = res.tweet;
+
+      // 1. Instantly display in Left Window
+      setVisibleTweets((prev) => [newTw, ...prev]);
+
+      // 2. Handle Right Window Reaction
+      if (res.outcome === "merged_existing") {
+        setLiveIncidents((prev) =>
+          prev.map((inc) => {
+            if (inc.id === res.incident_id) {
+              const currentTweets = inc.tweets || [];
+              return {
+                ...inc,
+                current_reports: res.current_reports,
+                tweets: [newTw, ...currentTweets],
+                justMerged: true,
+              };
+            }
+            return inc;
+          })
+        );
+        toast.success(res.message);
+      } else if (res.outcome === "new_incident_pending") {
+        toast.info(res.message, { duration: 4000 });
+      } else if (res.outcome === "new_incident_activated") {
+        setLiveIncidents((prev) => [res.incident, ...prev]);
+        toast.success(res.message, { duration: 5000 });
+      }
+
+      setInjectText("");
+      setInjectPhoto(null);
+    } catch (e: any) {
+      toast.error(e?.message || "Injection failed");
+    } finally {
+      setInjecting(false);
+    }
+  };
+
   const handleLaunchLiveSpace = async () => {
     if (profile.is_real_account) {
       try {
@@ -263,13 +341,11 @@ function TwitterChannelContent() {
         toast.error(e?.message || "Failed to start live session");
       }
     } else {
-      // Demo Mode: Pass origin context so back button returns to this exact Twitter station!
       toast.info("Connecting to PULSE Live Space Engine...");
       router.push(`/dashboard/stream/demo?from=twitter&handle=${encodeURIComponent(handleParam)}`);
     }
   };
 
-  // 🔥 START LIVE STREAM FOR REAL HANDLE
   const handleStartRealLiveSession = async () => {
     try {
       toast.info(`Initializing Live X Space Broadcast for ${handleParam}...`);
@@ -281,7 +357,6 @@ function TwitterChannelContent() {
     }
   };
 
-  // 🔥 LAUNCH ACTIVE COMMAND CENTER (When already live)
   const handleLaunchActiveLiveSpace = () => {
     if (activeLive?.stream_id) {
       router.push(`/dashboard/stream/${activeLive.stream_id}`);
@@ -290,15 +365,12 @@ function TwitterChannelContent() {
     }
   };
 
-  // 🔥 2. OPEN PAST SPACE FORENSIC AUTOPSY HANDLER
   const handleOpenSpaceAutopsy = async (session: any) => {
     try {
       toast.info(`Opening forensic autopsy for Space #${session.id}...`);
       if (session.is_db) {
-        // Direct open from database!
         router.push(`/dashboard/analysis/${session.id}`);
       } else {
-        // Generate stream from demo space
         const res = await api.getTwitterSpaceAutopsy(handleParam, session.id, session.duration_seconds);
         router.push(`/dashboard/analysis/${res.stream_id}`);
       }
@@ -606,6 +678,81 @@ function TwitterChannelContent() {
                       </div>
                     ))
                   )}
+                </div>
+
+                {/* ⚡ CITIZEN TWEET & REPORT INJECTOR BAR */}
+                <div className="p-3.5 border-t border-zinc-800/90 bg-zinc-950/95 shrink-0 flex flex-col gap-2 shadow-2xl">
+                  {/* Attached Photo Preview (if any) */}
+                  {injectPhoto && (
+                    <div className="flex items-center gap-2 bg-zinc-900/90 p-2 rounded-xl border border-sky-500/30 w-fit animate-in fade-in">
+                      <img src={injectPhoto} alt="Attached" className="w-8 h-8 rounded-lg object-cover border border-zinc-700" />
+                      <span className="text-[10px] font-mono text-sky-400">Attached Evidence Media</span>
+                      <button onClick={() => setInjectPhoto(null)} className="text-zinc-500 hover:text-rose-400 ml-1">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Input Box + Action Buttons */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={injectText}
+                        onChange={(e) => setInjectText(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleInjectTweet(); }}
+                        placeholder="Type citizen report or reply (e.g. 'Accident near Fortis Hospital')..."
+                        className="w-full pl-3 pr-20 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-sky-500 font-mono shadow-inner"
+                      />
+                      
+                      {/* File Upload Hidden Input + Icon */}
+                      <label className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-sky-400 transition" title="Attach Image">
+                        <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                        <ImageIcon className="w-4 h-4" />
+                      </label>
+                    </div>
+
+                    <button
+                      onClick={handleInjectTweet}
+                      disabled={injecting || !injectText.trim()}
+                      className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-bold text-xs font-mono shadow-md disabled:opacity-40 transition-all flex items-center gap-1.5 shrink-0"
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      {injecting ? "Injecting..." : "Inject ⚡"}
+                    </button>
+                  </div>
+
+                  {/* Quick Preset Evidence Photos & Fast Chips for Judges */}
+                  <div className="flex items-center justify-between gap-1 text-[10px] font-mono text-zinc-400 flex-wrap pt-1">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="text-zinc-600">Preset Photos:</span>
+                      {PRESET_EVIDENCE_PHOTOS.map((p, i) => (
+                        <button
+                          key={i}
+                          onClick={() => { setInjectPhoto(p.url); toast.success(`Attached ${p.label}`); }}
+                          className="px-2 py-0.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800 transition"
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setInjectText("Accident report: Car flipped near Sector 62 round-about, massive traffic jam!")}
+                        className="text-[9px] text-sky-400/80 hover:text-sky-300 underline"
+                      >
+                        + Sample Crash
+                      </button>
+                      <span>·</span>
+                      <button
+                        onClick={() => setInjectText("Emergency alert: Heavy robbery reported at Sector 15 market, police needed!")}
+                        className="text-[9px] text-amber-400/80 hover:text-amber-300 underline"
+                      >
+                        + Test New Incident (Threshold)
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1095,6 +1242,81 @@ function TwitterChannelContent() {
                           </div>
                         ))
                       )}
+                    </div>
+
+                    {/* ⚡ CITIZEN TWEET & REPORT INJECTOR BAR */}
+                    <div className="p-3.5 border-t border-zinc-800/90 bg-zinc-950/95 shrink-0 flex flex-col gap-2 shadow-2xl">
+                      {/* Attached Photo Preview (if any) */}
+                      {injectPhoto && (
+                        <div className="flex items-center gap-2 bg-zinc-900/90 p-2 rounded-xl border border-sky-500/30 w-fit animate-in fade-in">
+                          <img src={injectPhoto} alt="Attached" className="w-8 h-8 rounded-lg object-cover border border-zinc-700" />
+                          <span className="text-[10px] font-mono text-sky-400">Attached Evidence Media</span>
+                          <button onClick={() => setInjectPhoto(null)} className="text-zinc-500 hover:text-rose-400 ml-1">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Input Box + Action Buttons */}
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            value={injectText}
+                            onChange={(e) => setInjectText(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") handleInjectTweet(); }}
+                            placeholder="Type citizen report or reply (e.g. 'Accident near Fortis Hospital')..."
+                            className="w-full pl-3 pr-20 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-sky-500 font-mono shadow-inner"
+                          />
+                          
+                          {/* File Upload Hidden Input + Icon */}
+                          <label className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-sky-400 transition" title="Attach Image">
+                            <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                            <ImageIcon className="w-4 h-4" />
+                          </label>
+                        </div>
+
+                        <button
+                          onClick={handleInjectTweet}
+                          disabled={injecting || !injectText.trim()}
+                          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-bold text-xs font-mono shadow-md disabled:opacity-40 transition-all flex items-center gap-1.5 shrink-0"
+                        >
+                          <Zap className="w-3.5 h-3.5" />
+                          {injecting ? "Injecting..." : "Inject ⚡"}
+                        </button>
+                      </div>
+
+                      {/* Quick Preset Evidence Photos & Fast Chips for Judges */}
+                      <div className="flex items-center justify-between gap-1 text-[10px] font-mono text-zinc-400 flex-wrap pt-1">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="text-zinc-600">Preset Photos:</span>
+                          {PRESET_EVIDENCE_PHOTOS.map((p, i) => (
+                            <button
+                              key={i}
+                              onClick={() => { setInjectPhoto(p.url); toast.success(`Attached ${p.label}`); }}
+                              className="px-2 py-0.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800 transition"
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setInjectText("Accident report: Car flipped near Sector 62 round-about, massive traffic jam!")}
+                            className="text-[9px] text-sky-400/80 hover:text-sky-300 underline"
+                          >
+                            + Sample Crash
+                          </button>
+                          <span>·</span>
+                          <button
+                            onClick={() => setInjectText("Emergency alert: Heavy robbery reported at Sector 15 market, police needed!")}
+                            className="text-[9px] text-amber-400/80 hover:text-amber-300 underline"
+                          >
+                            + Test New Incident (Threshold)
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
