@@ -193,7 +193,7 @@ AGENCY_OFFICIAL_POSTS = [
     "likes": 1420,
     "retweets": 482,
     "quotes": 89,
-    "replies_count": 4,
+    "replies_count": 15,  # 🔥 FIXED: exactly 15 replies
     "has_media": False,
   },
   {
@@ -204,7 +204,7 @@ AGENCY_OFFICIAL_POSTS = [
     "likes": 3890,
     "retweets": 1250,
     "quotes": 210,
-    "replies_count": 2,
+    "replies_count": 15,  # 🔥 FIXED: exactly 15 replies
     "has_media": False,
   },
   {
@@ -215,7 +215,7 @@ AGENCY_OFFICIAL_POSTS = [
     "likes": 980,
     "retweets": 310,
     "quotes": 45,
-    "replies_count": 2,
+    "replies_count": 15,  # 🔥 FIXED: exactly 15 replies
     "has_media": False,
   },
 ]
