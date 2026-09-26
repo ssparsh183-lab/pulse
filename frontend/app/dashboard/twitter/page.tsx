@@ -277,7 +277,7 @@ export default function TwitterMasterGatewayPage() {
               <div className="mt-auto mb-6 grid grid-cols-3 gap-2 text-center text-xs font-mono">
                 <div className="bg-zinc-950/80 p-3 rounded-2xl border border-zinc-800">
                   <span className="text-[9px] text-zinc-500 uppercase block mb-0.5">Drill Units</span>
-                  <span className="font-bold text-sky-400">3 Handles</span>
+                  <span className="font-bold text-sky-400">1 Handle</span>
                 </div>
                 <div className="bg-zinc-950/80 p-3 rounded-2xl border border-zinc-800">
                   <span className="text-[9px] text-zinc-500 uppercase block mb-0.5">Vision AI</span>
