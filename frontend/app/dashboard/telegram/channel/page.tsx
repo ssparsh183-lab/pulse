@@ -331,8 +331,8 @@ function TelegramChannelContent() {
               </div>
             ) : (
               filteredBroadcasts.map((msg: any) => {
-                const mediaThumb = msg.media_url ? `${API_BASE_URL}${msg.media_url}?type=thumb` : null;
-                const fileStreamUrl = msg.media_url ? `${API_BASE_URL}${msg.media_url}?type=file` : null;
+                const mediaThumb = msg.media_url ? `${API_BASE_URL}${msg.media_url}?type=thumb&ngrok-skip-browser-warning=true`: null;
+                const fileStreamUrl = msg.media_url ? `${API_BASE_URL}${msg.media_url}?type=file&ngrok-skip-browser-warning=true`: null;
 
                 const isVideo = msg.media_type === "video";
                 const isPhoto = msg.media_type === "photo";
@@ -385,10 +385,15 @@ function TelegramChannelContent() {
                     {isPhoto && (
                       <div 
                         onClick={() => mediaThumb && setActivePhoto(mediaThumb)}
-                        className="mb-3 max-w-[460px] rounded-xl overflow-hidden border border-zinc-800 bg-zinc-950 cursor-pointer group hover:border-purple-500 transition-all"
+                        className="mb-3 max-w-[460px] rounded-xl overflow-hidden border border-zinc-800 bg-zinc-950 cursor-pointer group hover:border-purple-500 transition-all min-h-[160px] flex items-center justify-center"
                       >
                         {mediaThumb ? (
-                          <img src={mediaThumb} alt="" className="w-full h-auto max-h-[440px] object-contain" />
+                          <img 
+                            src={mediaThumb} 
+                            alt="Telegram Media" 
+                            className="w-full h-auto max-h-[440px] object-contain rounded-xl"
+                            loading="lazy" 
+                          />
                         ) : (
                           <div className="p-6 text-center text-xs text-zinc-400">Photo Attachment</div>
                         )}

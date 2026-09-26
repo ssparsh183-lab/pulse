@@ -539,6 +539,7 @@ async def disconnect_telegram(
 
 from fastapi.responses import Response, StreamingResponse, FileResponse
 from fastapi import Request
+
 CACHE_DIR = Path(__file__).resolve().parent.parent.parent / ".cache" / "telegram_media"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -551,9 +552,16 @@ async def get_telegram_media_stream(
     db: Session = Depends(get_db)
 ):
     """
-    ⚡ Real-Time HTTP 206 Streaming + Full Uncorrupted Download Engine.
-    Streams smoothly in player AND downloads 100% full file without any 2MB truncation!
+    ⚡ Ultra-Fast Local Disk Caching + HTTP 206 Streaming Engine.
+    Caches thumbnails to disk so Telethon doesn't get flooded and images load instantly!
     """
+    safe_channel = str(channel_id).replace("-", "m")
+    cached_thumb_file = CACHE_DIR / f"{safe_channel}_{message_id}_thumb.jpg"
+
+    # 🖼️ 1. FAST THUMBNAIL CACHE (Loads from disk in 1ms)
+    if type == "thumb" and cached_thumb_file.exists():
+        return FileResponse(cached_thumb_file, media_type="image/jpeg")
+
     conn = db.query(PlatformConnection).filter(PlatformConnection.platform == "telegram").first()
     if not conn or not conn.access_token:
         raise HTTPException(status_code=401, detail="Telegram not connected")
@@ -570,31 +578,29 @@ async def get_telegram_media_stream(
             await client.disconnect()
             raise HTTPException(status_code=404, detail="No media in message")
 
-        # 🖼️ 1. THUMBNAIL PREVIEW
+        # 🖼️ 1. THUMBNAIL PREVIEW (Download & Cache to Disk)
         if type == "thumb":
-            thumb_bytes = await client.download_media(message, thumb=-1, file=bytes)
-            if not thumb_bytes and message.photo:
-                thumb_bytes = await client.download_media(message.photo, file=bytes)
+            thumb_path = await client.download_media(message, thumb=-1, file=str(cached_thumb_file))
+            if not thumb_path and message.photo:
+                thumb_path = await client.download_media(message.photo, file=str(cached_thumb_file))
             await client.disconnect()
 
-            if thumb_bytes:
-                return Response(content=thumb_bytes, media_type="image/jpeg")
+            if cached_thumb_file.exists():
+                return FileResponse(cached_thumb_file, media_type="image/jpeg")
             raise HTTPException(status_code=404, detail="Thumbnail unavailable")
 
-        # 🎬 2. REAL FULL-LENGTH VIDEO & FILE STREAMING / DOWNLOADING
+        # 🎬 2. FULL FILE / VIDEO STREAMING (HTTP 206)
         if type == "file":
-            file_name = getattr(message.file, 'name', None) or f"video_{message_id}.mp4"
-            mime_type = getattr(message.file, 'mime_type', None) or "video/mp4"
+            file_name = getattr(message.file, 'name', None) or f"media_{message_id}"
+            mime_type = getattr(message.file, 'mime_type', None) or "application/octet-stream"
             file_size = getattr(message.file, 'size', 0) or 0
 
             range_header = request.headers.get("range")
 
-            # A. BROWSER PLAYER RANGE REQUEST (Play & Seek)
             if range_header and file_size > 0:
                 clean_range = range_header.replace("bytes=", "").strip()
                 parts = clean_range.split("-")
                 start = int(parts[0]) if parts[0] else 0
-                # 🔥 FIX: No 2MB cap! Stream up to the true end of the file!
                 end = int(parts[1]) if len(parts) > 1 and parts[1] else (file_size - 1)
 
                 start = max(0, min(start, file_size - 1))
@@ -646,8 +652,6 @@ async def get_telegram_media_stream(
                     headers=headers,
                     media_type=mime_type
                 )
-
-            # B. DIRECT FULL DOWNLOAD (When downloading via 3 dots or direct link)
             else:
                 async def full_file_streamer():
                     try:
@@ -674,6 +678,7 @@ async def get_telegram_media_stream(
         await client.disconnect()
         print(f"[STREAM DISPATCH ERROR]: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.get("/channel/{channel_id}/analyze")
