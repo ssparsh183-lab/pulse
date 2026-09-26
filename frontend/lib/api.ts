@@ -262,29 +262,6 @@ export const api = {
     return `${API_BASE_URL}/api/streams/${streamId}/export?token=${token || ""}`;
   },
 
-  downloadExport: async (streamId: string, genre: string = "mixed") => {
-    const token = getStoredToken();
-    const res = await fetch(`${API_BASE_URL}/api/streams/${streamId}/export?genre=${genre}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error("Export failed");
-    const blob = await res.blob();
-    const contentDisp = res.headers.get("Content-Disposition") || "";
-    const filenameMatch = contentDisp.match(/filename=(.+)/);
-    const filename = filenameMatch
-      ? filenameMatch[1]
-      : `pulse_report_${streamId.slice(0, 8)}.html`;
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  },
-
   sendTelegramCode: (phoneNumber: string) =>
     fetchApi<{ ok: boolean; phone_number: string; phone_code_hash: string; message: string }>(
       "/api/telegram/auth/send-code",
@@ -320,30 +297,13 @@ export const api = {
   analyzeTelegramChannel: (channelId: string) => 
     fetchApi<any>(`/api/telegram/channel/${channelId}/analyze`),
 
-  downloadTelegramExport: async (channelId: string) => {
-    const token = getStoredToken();
-    const res = await fetch(`${API_BASE_URL}/api/telegram/channel/${channelId}/export`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error("Export failed");
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `pulse_tg_autopsy_${channelId}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  },
-
   // 🔥 NEW: Spawns / Fetches Exact-Timeline Session Autopsy for Past Telegram Streams!
   getTelegramSessionAutopsy: (channelId: string, sessionMsgId: string) =>
     fetchApi<{ stream_id: string }>(`/api/telegram/channel/${channelId}/session/${sessionMsgId}/autopsy`, {
       method: "POST",
     }),
 
-// ==================== TWITTER / X API ====================
+  // ==================== TWITTER / X API ====================
   getTwitterMe: () =>
     fetchApi<{ connected: boolean; handle?: string }>("/api/twitter/me"),
 
@@ -380,19 +340,6 @@ export const api = {
   resetTwitterDemo: () =>
     fetchApi<any>("/api/twitter/reset", { method: "POST" }),
 
-  downloadTwitterReport: async (incidentId: string) => {
-    const res = await fetch(`${API_BASE_URL}/api/twitter/incidents/${incidentId}/report`);
-    if (!res.ok) throw new Error("Report download failed");
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `pulse_incident_autopsy_${incidentId}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  },
   getTwitterPostAutopsy: (postId: string, handle?: string) =>
     fetchApi<any>(`/api/twitter/posts/${postId}/autopsy`, { query: { handle } }),
 
@@ -418,5 +365,67 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
-};
 
+  // ============================================================
+  // 🔥 UNIVERSAL BULLETPROOF DOWNLOAD HELPER (Bypasses ngrok & browser shields)
+  // ============================================================
+  downloadFileFromEndpoint: async (endpoint: string, fallbackFilename: string) => {
+    const token = getStoredToken();
+    const headers: Record<string, string> = {
+      "ngrok-skip-browser-warning": "true", // Bypasses ngrok free tier
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`${API_BASE_URL}${endpoint}`, { headers });
+    if (!res.ok) {
+      let msg = `Download failed (${res.status})`;
+      try {
+        const err = await res.json();
+        msg = err.detail || msg;
+      } catch {}
+      throw new Error(msg);
+    }
+
+    const blob = await res.blob();
+    const contentDisp = res.headers.get("Content-Disposition") || "";
+    const filenameMatch = contentDisp.match(/filename=["']?([^"';]+)["']?/);
+    const filename = filenameMatch ? filenameMatch[1] : fallbackFilename;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1000);
+  },
+
+  // 1. YouTube & Live Stream Export
+  downloadExport: async (streamId: string, genre: string = "mixed") => {
+    await api.downloadFileFromEndpoint(
+      `/api/streams/${streamId}/export?genre=${genre}`,
+      `pulse_report_${streamId.slice(0, 8)}.html`
+    );
+  },
+
+  // 2. Telegram Channel Autopsy Export
+  downloadTelegramExport: async (channelId: string) => {
+    await api.downloadFileFromEndpoint(
+      `/api/telegram/channel/${channelId}/export`,
+      `pulse_tg_autopsy_${channelId}.html`
+    );
+  },
+
+  // 3. Twitter Incident Autopsy Export
+  downloadTwitterReport: async (incidentId: string) => {
+    await api.downloadFileFromEndpoint(
+      `/api/twitter/incidents/${incidentId}/report`,
+      `pulse_incident_autopsy_${incidentId}.html`
+    );
+  },
+};

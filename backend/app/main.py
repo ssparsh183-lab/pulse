@@ -65,13 +65,14 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 
-# CORS — allow frontend to connect
+# CORS — allow frontend, Vercel & expose download headers
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows localhost & Vercel production domain both
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],  # 🔥 MUST HAVE: Browser download header allow karta hai
 )
 
 
