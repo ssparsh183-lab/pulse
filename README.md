@@ -78,35 +78,15 @@ PULSE solves this bottleneck by providing an end-to-end sovereign triage pipelin
 ## Under-The-Hood AI Architecture
 
 PULSE uses an efficient, local 4-layer Natural Language Processing pipeline:
-[ Raw Social Media Feed (X / Telegram / YouTube) ]
-│
-▼
-[ LAYER 1: Preprocessing & Hinglish Normalization ]
-→ Corrects typos and standardizes Hinglish slangs
-("awaz ni aa rhi" → "audio issue")
-│
-▼
-[ LAYER 2: Location Hard-Gate ]
-→ Extracts landmark entities (e.g., Sector 62 vs Sector 18)
-→ Prevents false merges between distinct incidents
-│
-▼
-[ LAYER 3: Multilingual Semantic Embeddings (LaBSE) ]
-→ Projects English, Hindi, and Hinglish into a shared
-768-dimensional vector space
-→ Hybrid Similarity = (0.70 × Semantic Cosine) + (0.30 × Lexical Token Match)
-│
-▼
-[ LAYER 4: State Machine & Consensus Threshold ]
-→ Requires ≥2 independent user reports to spawn an incident
-→ Lifecycle: NOISE → EMERGING → ACTIVE → RESOLVED
-│
-▼
-[ Prioritized Incident Cards + 1-Click Operational Dispatch ]
 
-
-
----
+```mermaid
+flowchart TD
+    A["📡 Raw Social Media Feed<br/>(X / Telegram / YouTube)"] --> B["<b>LAYER 1:</b> Preprocessing & Hinglish Normalization<br/><i>Standardizes Hinglish slangs ('awaz ni aa rhi' → 'audio issue')</i>"]
+    B --> C["<b>LAYER 2:</b> Location Hard-Gate<br/><i>Landmark entity extraction (prevents false cross-city merges)</i>"]
+    C --> D["<b>LAYER 3:</b> Multilingual Semantic Embeddings (LaBSE)<br/><i>768-dim vector space | Hybrid Similarity (0.70 Cosine + 0.30 Lexical)</i>"]
+    D --> E["<b>LAYER 4:</b> State Machine & Consensus Threshold<br/><i>NOISE → EMERGING → ACTIVE → RESOLVED</i>"]
+    E --> F["🎯 Prioritized Incident Cards + 1-Click Operational Dispatch"]
+```
 
 ## NTRO Problem Statement (SIH26152) Alignment
 
@@ -129,28 +109,27 @@ PULSE uses an efficient, local 4-layer Natural Language Processing pipeline:
 ---
 
 ## Project Structure
+
+```text
 pulse/
-├── backend/ # FastAPI Application
-│ ├── app/
-│ │ ├── api/ # API Routers: Twitter, Telegram, YouTube, OSINT
-│ │ ├── db/ # SQLAlchemy engine, session & Supabase setup
-│ │ ├── models/ # Relational database models
-│ │ ├── pulse_engine/ # Core NLP: LaBSE embedder, fusion, classification
-│ │ ├── services/ # Platform services: audience DNA, timeline, reports
-│ │ └── main.py # FastAPI application entry point
-│ ├── datasets/ # Benchmark incident scenarios & demo data
-│ └── requirements.txt # Python dependencies
-├── frontend/ # Next.js 16 App Router Frontend
-│ ├── app/ # Pages: dashboard, twitter, telegram, classified
-│ ├── components/ # UI Components: analytics, triage consoles, cards
-│ ├── lib/ # API client, constants, and utilities
-│ ├── store/ # Zustand state stores: auth, theme
-│ └── package.json # Node.js dependencies
+├── backend/                  # FastAPI Application
+│   ├── app/
+│   │   ├── api/              # API Routers: Twitter, Telegram, YouTube, OSINT
+│   │   ├── db/               # SQLAlchemy engine, session & Supabase setup
+│   │   ├── models/           # Relational database models
+│   │   ├── pulse_engine/     # Core NLP: LaBSE embedder, fusion, classification
+│   │   ├── services/         # Platform services: audience DNA, timeline, reports
+│   │   └── main.py           # FastAPI application entry point
+│   ├── datasets/             # Benchmark incident scenarios & demo data
+│   └── requirements.txt      # Python dependencies
+├── frontend/                 # Next.js 16 App Router Frontend
+│   ├── app/                  # Pages: dashboard, twitter, telegram, classified
+│   ├── components/           # UI Components: analytics, triage consoles, cards
+│   ├── lib/                  # API client, constants, and utilities
+│   ├── store/                # Zustand state stores: auth, theme
+│   └── package.json          # Node.js dependencies
 └── README.md
-
-
-
----
+```
 
 ## Tech Stack
 
