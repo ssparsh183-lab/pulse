@@ -32,22 +32,22 @@ PULSE solves this bottleneck by providing an end-to-end sovereign triage pipelin
 
 ---
 
-## Core Platform Pillars
-┌──────────────────────────────────────────────┐
-│ PULSE MASTER GATEWAY │
-│ (/dashboard) │
-└──────────────────────┬───────────────────────┘
-│
-┌─────────────────┼─────────────────┬─────────────────┐
-│ │ │ │
-▼ ▼ ▼ ▼
-┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐
-│ X (Twitter)│ │ Telegram │ │ YouTube │ │ Classified │
-│ Command │ │Intelligence│ │ Station │ │ OSINT │
-│ Station │ │ Hub │ │ (OAuth) │ │ Terminal │
-└────────────┘ └────────────┘ └────────────┘ └────────────┘
+## 🏛️ Core Platform Pillars
 
-text
+```mermaid
+flowchart TD
+    classDef master fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef station fill:#0f172a,stroke:#38bdf8,stroke-width:1.5px,color:#e2e8f0;
+    classDef classified fill:#450a0a,stroke:#ef4444,stroke-width:1.5px,color:#fecaca;
+
+    GATEWAY["🛡️ PULSE MASTER GATEWAY<br/><code>/dashboard</code><br/><i>Cross-Platform Sovereign Fusion Engine</i>"]:::master
+    
+    GATEWAY --> X["🐦 X (Twitter) Station<br/><i>Real-time Grievance & Bot Triage</i>"]:::station
+    GATEWAY --> TG["✈️ Telegram Intel Hub<br/><i>Geo-spatial Forward Topology</i>"]:::station
+    GATEWAY --> YT["🔴 YouTube Station<br/><i>Official Channel OAuth Audit</i>"]:::station
+    GATEWAY --> OSINT["🔒 Classified OSINT Vault<br/><i>DPDP Act Compliant Air-Gapped Analysis</i>"]:::classified
+```
+
 
 
 ### 1. X (Twitter) Command Station
@@ -79,36 +79,15 @@ text
 ## Under-The-Hood AI Architecture
 
 PULSE uses an efficient, local 4-layer Natural Language Processing pipeline:
-[ Raw Social Media Feed (X / Telegram / YouTube) ]
-│
-▼
-[ LAYER 1: Preprocessing & Hinglish Normalization ]
-→ Corrects typos and standardizes Hinglish slangs
-("awaz ni aa rhi" → "audio issue")
-│
-▼
-[ LAYER 2: Location Hard-Gate ]
-→ Extracts landmark entities (e.g., Sector 62 vs Sector 18)
-→ Prevents false merges between distinct incidents
-│
-▼
-[ LAYER 3: Multilingual Semantic Embeddings (LaBSE) ]
-→ Projects English, Hindi, and Hinglish into a shared
-768-dimensional vector space
-→ Hybrid Similarity = (0.70 × Semantic Cosine) + (0.30 × Lexical Token Match)
-│
-▼
-[ LAYER 4: State Machine & Consensus Threshold ]
-→ Requires ≥2 independent user reports to spawn an incident
-→ Lifecycle: NOISE → EMERGING → ACTIVE → RESOLVED
-│
-▼
-[ Prioritized Incident Cards + 1-Click Operational Dispatch ]
 
-text
-
-
----
+```mermaid
+flowchart TD
+    A["📡 Raw Social Media Feed<br/>(X / Telegram / YouTube)"] --> B["<b>LAYER 1:</b> Preprocessing & Hinglish Normalization<br/><i>Standardizes Hinglish slangs ('awaz ni aa rhi' → 'audio issue')</i>"]
+    B --> C["<b>LAYER 2:</b> Location Hard-Gate<br/><i>Landmark entity extraction (prevents false cross-city merges)</i>"]
+    C --> D["<b>LAYER 3:</b> Multilingual Semantic Embeddings (LaBSE)<br/><i>768-dim vector space | Hybrid Similarity (0.70 Cosine + 0.30 Lexical)</i>"]
+    D --> E["<b>LAYER 4:</b> State Machine & Consensus Threshold<br/><i>NOISE → EMERGING → ACTIVE → RESOLVED</i>"]
+    E --> F["🎯 Prioritized Incident Cards + 1-Click Operational Dispatch"]
+```
 
 ## NTRO Problem Statement (SIH26152) Alignment
 
@@ -131,29 +110,27 @@ text
 ---
 
 ## Project Structure
+
+```text
 pulse/
-├── backend/ # FastAPI Application
-│ ├── app/
-│ │ ├── api/ # API Routers: Twitter, Telegram, YouTube, OSINT
-│ │ ├── db/ # SQLAlchemy engine, session & Supabase setup
-│ │ ├── models/ # Relational database models
-│ │ ├── pulse_engine/ # Core NLP: LaBSE embedder, fusion, classification
-│ │ ├── services/ # Platform services: audience DNA, timeline, reports
-│ │ └── main.py # FastAPI application entry point
-│ ├── datasets/ # Benchmark incident scenarios & demo data
-│ └── requirements.txt # Python dependencies
-├── frontend/ # Next.js 16 App Router Frontend
-│ ├── app/ # Pages: dashboard, twitter, telegram, classified
-│ ├── components/ # UI Components: analytics, triage consoles, cards
-│ ├── lib/ # API client, constants, and utilities
-│ ├── store/ # Zustand state stores: auth, theme
-│ └── package.json # Node.js dependencies
+├── backend/                  # FastAPI Application
+│   ├── app/
+│   │   ├── api/              # API Routers: Twitter, Telegram, YouTube, OSINT
+│   │   ├── db/               # SQLAlchemy engine, session & Supabase setup
+│   │   ├── models/           # Relational database models
+│   │   ├── pulse_engine/     # Core NLP: LaBSE embedder, fusion, classification
+│   │   ├── services/         # Platform services: audience DNA, timeline, reports
+│   │   └── main.py           # FastAPI application entry point
+│   ├── datasets/             # Benchmark incident scenarios & demo data
+│   └── requirements.txt      # Python dependencies
+├── frontend/                 # Next.js 16 App Router Frontend
+│   ├── app/                  # Pages: dashboard, twitter, telegram, classified
+│   ├── components/           # UI Components: analytics, triage consoles, cards
+│   ├── lib/                  # API client, constants, and utilities
+│   ├── store/                # Zustand state stores: auth, theme
+│   └── package.json          # Node.js dependencies
 └── README.md
-
-text
-
-
----
+```
 
 ## Tech Stack
 
@@ -203,7 +180,5 @@ Open http://localhost:3000 in your browser to access the local instance.
 
 
 
-Team StreamSync
-Built for Smart India Hackathon 2026 in response to NTRO Problem Statement SIH26152.
 
 
