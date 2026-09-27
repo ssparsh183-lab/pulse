@@ -47,7 +47,6 @@ PULSE solves this bottleneck by providing an end-to-end sovereign triage pipelin
 │ Station │ │ Hub │ │ (OAuth) │ │ Terminal │
 └────────────┘ └────────────┘ └────────────┘ └────────────┘
 
-text
 
 
 ### 1. X (Twitter) Command Station
@@ -105,7 +104,6 @@ PULSE uses an efficient, local 4-layer Natural Language Processing pipeline:
 ▼
 [ Prioritized Incident Cards + 1-Click Operational Dispatch ]
 
-text
 
 
 ---
@@ -150,7 +148,6 @@ pulse/
 │ └── package.json # Node.js dependencies
 └── README.md
 
-text
 
 
 ---
@@ -203,7 +200,5 @@ Open http://localhost:3000 in your browser to access the local instance.
 
 
 
-Team StreamSync
-Built for Smart India Hackathon 2026 in response to NTRO Problem Statement SIH26152.
 
 
