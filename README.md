@@ -32,20 +32,21 @@ PULSE solves this bottleneck by providing an end-to-end sovereign triage pipelin
 
 ---
 
-## Core Platform Pillars
-┌──────────────────────────────────────────────┐
-│ PULSE MASTER GATEWAY │
-│ (/dashboard) │
-└──────────────────────┬───────────────────────┘
-│
-┌─────────────────┼─────────────────┬─────────────────┐
-│ │ │ │
-▼ ▼ ▼ ▼
-┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐
-│ X (Twitter)│ │ Telegram │ │ YouTube │ │ Classified │
-│ Command │ │Intelligence│ │ Station │ │ OSINT │
-│ Station │ │ Hub │ │ (OAuth) │ │ Terminal │
-└────────────┘ └────────────┘ └────────────┘ └────────────┘
+## 🏛️ Core Platform Pillars
+
+```mermaid
+flowchart TD
+    classDef master fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#ffffff,font-weight:bold;
+    classDef station fill:#0f172a,stroke:#38bdf8,stroke-width:1.5px,color:#e2e8f0;
+    classDef classified fill:#450a0a,stroke:#ef4444,stroke-width:1.5px,color:#fecaca;
+
+    GATEWAY["🛡️ PULSE MASTER GATEWAY<br/><code>/dashboard</code><br/><i>Cross-Platform Sovereign Fusion Engine</i>"]:::master
+    
+    GATEWAY --> X["🐦 X (Twitter) Station<br/><i>Real-time Grievance & Bot Triage</i>"]:::station
+    GATEWAY --> TG["✈️ Telegram Intel Hub<br/><i>Geo-spatial Forward Topology</i>"]:::station
+    GATEWAY --> YT["🔴 YouTube Station<br/><i>Official Channel OAuth Audit</i>"]:::station
+    GATEWAY --> OSINT["🔒 Classified OSINT Vault<br/><i>DPDP Act Compliant Air-Gapped Analysis</i>"]:::classified
+```
 
 
 
