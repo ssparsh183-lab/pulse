@@ -130,7 +130,20 @@ export default function MasterClassifiedIntelPage() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              
+              {/* SIH Evaluator Quick Autofill */}
+              <div className="flex items-center justify-between mt-2 px-1">
+                <span className="text-[10px] font-mono text-zinc-500">SIH Evaluator Clearance:</span>
+                <button
+                  type="button"
+                  onClick={() => setPassword("sih2026_ntro")}
+                  className="text-[10px] font-mono text-red-400 hover:text-red-300 underline transition cursor-pointer"
+                >
+                  Autofill Key (sih2026_ntro)
+                </button>
+              </div>
             </div>
+            
             <button
               type="submit"
               className="w-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold py-3.5 rounded-2xl text-xs font-mono transition shadow-lg shadow-red-600/20 flex items-center justify-center gap-2"
@@ -565,7 +578,7 @@ export default function MasterClassifiedIntelPage() {
                     </span>
                   </div>
 
-                  {/* Card 2: Real Comments (Exact 76) */}
+                  {/* Card 2: Real Comments */}
                   <div className="glass-panel p-5 rounded-3xl border border-amber-500/30 bg-zinc-900/50">
                     <span className="text-[10px] font-mono text-zinc-500 uppercase block mb-1">Total Comments</span>
                     <span className="text-2xl font-bold text-amber-400 font-mono">
