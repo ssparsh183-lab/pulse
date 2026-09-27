@@ -303,8 +303,9 @@ function TwitterChannelContent() {
       });
 
       const newTw = res.tweet;
-
-      // 1. Instantly display in Left Window
+      if (!newTw.incident_id && res.incident_id) {
+        newTw.incident_id = res.incident_id;
+      }
       setVisibleTweets((prev) => [newTw, ...prev]);
 
       // 2. Handle Right Window Reaction
@@ -414,7 +415,7 @@ function TwitterChannelContent() {
 
       setVisibleTweets((prev) =>
         prev.map((tw) =>
-          tw.incident_id === selectedIncident.id
+          tw.incident_id === selectedIncident.id || res.tweet_ids?.includes(tw.id)
             ? { ...tw, addressed: true, addressed_badge: "✓ Addressed by @Uppolice" }
             : tw
         )

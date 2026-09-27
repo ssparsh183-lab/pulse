@@ -907,7 +907,6 @@ def inject_twitter_report(body: TwitterInjectRequest):
     text_lower = body.text.lower()
     incidents = get_incidents_data()
 
-    # 1. Check match against existing established incidents
     matched_inc = None
 
     # Accident / NH-24 Match
@@ -926,7 +925,7 @@ def inject_twitter_report(body: TwitterInjectRequest):
     elif any(k in text_lower for k in ["underpass", "water", "waterlogging", "doob", "paani", "sector 18", "sec 18"]):
         matched_inc = next((i for i in incidents if i["id"] == "INC_004"), None)
 
-    # 🟢 CASE A: Matches Existing Incident ➔ Merge Immediately!
+    # 🟢 CASE A: Matches Existing Incident ➔ Merge & Link!
     if matched_inc:
         new_tweet_id = f"tw_inj_{int(datetime.utcnow().timestamp() * 1000)}"
         new_tw = {
@@ -939,7 +938,8 @@ def inject_twitter_report(body: TwitterInjectRequest):
             "media_type": "photo" if body.photo else None,
             "appears_at": 0,
             "addressed": False,
-            "timestamp": datetime.utcnow().strftime("%H:%M:%S")
+            "timestamp": datetime.utcnow().strftime("%H:%M:%S"),
+            "incident_id": matched_inc["id"]  # 🔥 FIX: Link incident_id explicitly!
         }
         matched_inc.setdefault("tweets", []).append(new_tw)
         matched_inc["current_reports"] = len(matched_inc["tweets"])
@@ -956,8 +956,7 @@ def inject_twitter_report(body: TwitterInjectRequest):
             "message": f"Report merged into '{matched_inc['title']}' ({matched_inc['current_reports']} contributing reports)!"
         }
 
-    # 🟡 CASE B: Completely New Incident ➔ Apply 2-Replies Threshold!
-    # Extract landmark or topic key
+    # 🟡 CASE B: New Incident with 2-Replies Threshold
     words = [w for w in re.findall(r'\b\w+\b', text_lower) if len(w) > 3 and w not in ["this", "that", "there", "here", "help", "please", "police"]]
     cluster_key = "_".join(words[:2]) if len(words) >= 2 else (words[0] if words else "custom_incident")
 
@@ -972,10 +971,10 @@ def inject_twitter_report(body: TwitterInjectRequest):
         "media_type": "photo" if body.photo else None,
         "appears_at": 0,
         "addressed": False,
-        "timestamp": datetime.utcnow().strftime("%H:%M:%S")
+        "timestamp": datetime.utcnow().strftime("%H:%M:%S"),
+        "incident_id": f"PENDING_{cluster_key}"
     }
 
-    # If first report for this new topic:
     if cluster_key not in _pending_custom_incidents:
         _pending_custom_incidents[cluster_key] = {
             "key": cluster_key,
@@ -991,18 +990,19 @@ def inject_twitter_report(body: TwitterInjectRequest):
             "current_reports": 1,
             "threshold": 2,
             "cluster_key": cluster_key,
+            "incident_id": f"PENDING_{cluster_key}",
             "tweet": new_tw,
             "message": "First report registered! Threshold is 2 replies to verify and form an active Incident Card."
         }
-
-    # If second report arrives ➔ Threshold Reached! Spawn New Incident Card!
     else:
         pending = _pending_custom_incidents.pop(cluster_key)
-        pending["tweets"].append(new_tw)
         _custom_incident_counter += 1
         new_inc_id = f"INC_{_custom_incident_counter}"
-        
-        # Derive title and location from text
+        new_tw["incident_id"] = new_inc_id
+        for t in pending["tweets"]:
+            t["incident_id"] = new_inc_id
+        pending["tweets"].append(new_tw)
+
         title = body.text.split(",")[0].split(".")[0].strip().title()
         if len(title) > 40:
             title = title[:37] + "..."
@@ -1016,7 +1016,7 @@ def inject_twitter_report(body: TwitterInjectRequest):
             "velocity": "+2/min",
             "category": "emergency_alert",
             "status": "active",
-            "current_reports": 2,
+            "current_reports": len(pending["tweets"]),
             "vision": {
                 "same_incident": bool(body.photo),
                 "confidence": 0.89 if body.photo else 0.82,
@@ -1024,15 +1024,15 @@ def inject_twitter_report(body: TwitterInjectRequest):
             },
             "tweets": pending["tweets"]
         }
-        # Add to live incidents
         incidents.insert(0, spawned_incident)
 
         return {
             "ok": True,
             "outcome": "new_incident_activated",
             "threshold_reached": True,
-            "current_reports": 2,
+            "current_reports": len(pending["tweets"]),
             "threshold": 2,
+            "incident_id": new_inc_id,
             "incident": spawned_incident,
             "tweet": new_tw,
             "message": f"Threshold reached (2/2)! Spawned new active Incident Card: '{spawned_incident['title']}' 🚨"

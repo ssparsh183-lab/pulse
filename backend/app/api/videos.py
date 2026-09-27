@@ -125,13 +125,15 @@ async def analyze_video(
         db.commit()
         db.refresh(stream)
     else:
-        # Wipe old data for clean re-sync
+        # Wipe old data for clean re-sync (FIXED ORDER: Delete messages first to prevent FK violation!)
+        db.query(MessageModel).filter(MessageModel.stream_id == stream.id).update({MessageModel.signal_id: None}, synchronize_session=False)
+        db.query(MessageModel).filter(MessageModel.stream_id == stream.id).delete(synchronize_session=False)
+
         db.query(SignalMembership).filter(SignalMembership.signal_id.in_(
             db.query(SignalModel.id).filter(SignalModel.stream_id == stream.id)
         )).delete(synchronize_session=False)
 
         db.query(SignalModel).filter(SignalModel.stream_id == stream.id).delete(synchronize_session=False)
-        db.query(MessageModel).filter(MessageModel.stream_id == stream.id).delete(synchronize_session=False)
         db.commit()
         db.expire_all()
         clear_engine_cache(stream.id)
