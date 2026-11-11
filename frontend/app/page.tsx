@@ -48,7 +48,7 @@ export default function Home() {
           </div>
           <div className="h-4 w-px bg-zinc-800 hidden sm:block" />
           <a
-            href="https://github.com"
+            href="https://github.com/ssparsh183-lab"
             target="_blank"
             className="hover:text-zinc-200 transition text-xs"
           >
